@@ -1,4 +1,3 @@
----
 # Frontend pods serve the static HTML/CSS/JS via nginx-unprivileged.
 # No NoSQL access, no secrets needed — just serve files on port 8080.
 #
@@ -28,7 +27,7 @@ spec:
         app: urlshortener
         component: frontend
     spec:
-      serviceAccountName: urlshortener   # for OCIR pull secret
+      serviceAccountName: urlshortener # for OCIR pull secret
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -41,7 +40,7 @@ spec:
                     component: frontend
       containers:
         - name: nginx
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-frontend:0.0.0 # {"$imagepolicy": "flux-system:urlshortener-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-frontend:0.0.3 # {"$imagepolicy": "flux-system:urlshortener-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
