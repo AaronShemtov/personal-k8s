@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflare
+  labels:
+    # Will allow this namespace's HTTPRoutes to attach to the homelab-gateway
+    # later (Gateway uses allowedRoutes.namespaces.from: All anyway).
+    name: cloudflare
