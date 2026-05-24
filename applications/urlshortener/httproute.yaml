@@ -1,0 +1,60 @@
+---
+# HTTPRoute that ties the three services together on hostname 1ms.my.
+#
+# Routing rules (Gateway API matches by specificity, not array order):
+#   POST /shorten, POST /createcustom  → writer service
+#   GET  /<6-char base62 code>          → reader service (301 redirect)
+#   GET  /, /*.ico, /*.webp, ...        → frontend service (catch-all)
+#
+# The /healthz endpoint on each service is accessed via kubelet probes
+# directly to pods, not through this HTTPRoute — so the catch-all route
+# sending /healthz to frontend is fine (frontend has its own /healthz).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: urlshortener
+  namespace: urlshortener
+spec:
+  parentRefs:
+    - name: homelab-gateway
+      namespace: envoy-gateway-system
+      sectionName: http
+  hostnames:
+    - "1ms.my"
+  rules:
+    # Writer endpoints — exact paths, POST only.
+    # Two matches in one rule = OR; both route to the same backend.
+    - matches:
+        - path:
+            type: Exact
+            value: /shorten
+          method: POST
+        - path:
+            type: Exact
+            value: /createcustom
+          method: POST
+      backendRefs:
+        - name: urlshortener-writer
+          port: 80
+
+    # Reader endpoint — any GET to a path that looks like a 6-char short code.
+    # Regex ensures we don't accidentally hijack static asset paths (which
+    # have file extensions) or longer arbitrary paths.
+    - matches:
+        - path:
+            type: RegularExpression
+            value: "^/[a-zA-Z0-9]{6}$"
+          method: GET
+      backendRefs:
+        - name: urlshortener-reader
+          port: 80
+
+    # Catch-all — frontend serves "/", static assets, and any unmatched path.
+    # nginx in the frontend pod handles the SPA fallback (try_files ... /index.html).
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: urlshortener-frontend
+          port: 80

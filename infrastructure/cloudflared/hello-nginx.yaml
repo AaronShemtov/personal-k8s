@@ -1,58 +1,58 @@
----
-# Sanity-check nginx — confirms the full request path works end-to-end
-# before deploying urlshortener. This is a TEMPORARY placeholder that will
-# be removed once the real application is in place.
-#
-# Layout: one Deployment + one Service in the cloudflare namespace.
-# Lives alongside cloudflared so it's clear this is part of the path-check
-# scaffolding, not application code.
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: hello-nginx
-  namespace: cloudflare
-  labels:
-    app: hello-nginx
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: hello-nginx
-  template:
-    metadata:
-      labels:
-        app: hello-nginx
-    spec:
-      containers:
-        - name: nginx
-          image: nginxinc/nginx-unprivileged:1.27-alpine
-          ports:
-            - containerPort: 8080
-          # Default page is fine for the sanity check — we just need any 200 OK.
-          resources:
-            requests:
-              cpu: 10m
-              memory: 16Mi
-            limits:
-              memory: 32Mi
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 101
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false   # nginx writes to /var/cache and /tmp
-            capabilities:
-              drop:
-                - ALL
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: hello-nginx
-  namespace: cloudflare
-spec:
-  selector:
-    app: hello-nginx
-  ports:
-    - name: http
-      port: 80
-      targetPort: 8080
+# ---
+# # Sanity-check nginx — confirms the full request path works end-to-end
+# # before deploying urlshortener. This is a TEMPORARY placeholder that will
+# # be removed once the real application is in place.
+# #
+# # Layout: one Deployment + one Service in the cloudflare namespace.
+# # Lives alongside cloudflared so it's clear this is part of the path-check
+# # scaffolding, not application code.
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: hello-nginx
+#   namespace: cloudflare
+#   labels:
+#     app: hello-nginx
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: hello-nginx
+#   template:
+#     metadata:
+#       labels:
+#         app: hello-nginx
+#     spec:
+#       containers:
+#         - name: nginx
+#           image: nginxinc/nginx-unprivileged:1.27-alpine
+#           ports:
+#             - containerPort: 8080
+#           # Default page is fine for the sanity check — we just need any 200 OK.
+#           resources:
+#             requests:
+#               cpu: 10m
+#               memory: 16Mi
+#             limits:
+#               memory: 32Mi
+#           securityContext:
+#             runAsNonRoot: true
+#             runAsUser: 101
+#             allowPrivilegeEscalation: false
+#             readOnlyRootFilesystem: false   # nginx writes to /var/cache and /tmp
+#             capabilities:
+#               drop:
+#                 - ALL
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: hello-nginx
+#   namespace: cloudflare
+# spec:
+#   selector:
+#     app: hello-nginx
+#   ports:
+#     - name: http
+#       port: 80
+#       targetPort: 8080
