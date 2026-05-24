@@ -1,17 +1,4 @@
 ---
-# Image Automation pipeline for urlshortener images.
-#
-# Flow on every push to backend/frontend repo:
-#   1. GitHub Actions builds image, tags it ":0.0.<run_number>" + ":<sha>" + ":latest"
-#   2. ImageRepository (this file) scans OCIR every 2 minutes, sees the new tag
-#   3. ImagePolicy picks the highest semver-tagged version
-#   4. ImageUpdateAutomation (below) compares it to whatever is in the Deployment
-#      manifests; if different, commits an update to personal-k8s on branch main
-#   5. Flux kustomize-controller sees the new commit, applies it, pod rolls out
-#
-# Marker comments in the Deployment YAMLs (e.g. # {"$imagepolicy": "..."}) tell
-# the automation controller which field to edit and which policy to use.
-
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -23,10 +10,6 @@ spec:
   secretRef:
     name: ocir-pull-secret
 ---
-# Semver strategy reliably orders builds because we tag with 0.0.<run_number>,
-# which is strictly monotonic. Compare to alphabetical sort of git short-SHAs,
-# which produces nonsense ordering (a hex string from a newer commit can be
-# alphabetically smaller than one from an older commit).
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImagePolicy
 metadata:
@@ -62,11 +45,8 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# This is the loop closure. It reuses the same GitRepository (flux-system) that
-# the rest of the cluster uses for reads — meaning the SSH deploy key with
-# write access we configured does both:
-#   - pull manifests for kustomize-controller
-#   - push tag bumps from image-automation-controller
+# Simplified commit message template — iterates over Updated.Images as a slice,
+# letting each element stringify itself via the ImageRef.String() method.
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageUpdateAutomation
 metadata:
@@ -86,16 +66,13 @@ spec:
         email: flux@1ms.my
         name: Flux Image Automation
       messageTemplate: |
-        chore(images): bump urlshortener images
+        chore(images): bump urlshortener
 
-        Updates:
-        {{ range $image, $_ := .Updated.Images -}}
-        - {{ $image.Repository }} → {{ $image.Identifier }}
+        {{ range .Updated.Images -}}
+        - {{ . }}
         {{ end -}}
     push:
       branch: main
   update:
     strategy: Setters
-    # Only scan manifests under this path for image markers — keeps the
-    # automation focused and the runtime cost minimal.
     path: ./applications/urlshortener
