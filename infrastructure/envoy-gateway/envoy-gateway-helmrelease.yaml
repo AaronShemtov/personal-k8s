@@ -1,0 +1,46 @@
+---
+# Installs Envoy Gateway controller into envoy-gateway-system namespace.
+#
+# The chart auto-creates:
+#   - GatewayClass named "eg"  (used by your Gateway resource later)
+#   - ServiceAccount, ClusterRole, ClusterRoleBinding for the controller
+#   - CRDs for EnvoyProxy, ClientTrafficPolicy, BackendTrafficPolicy, etc.
+#
+# Chart version 1.2.x is pinned to the same minor as Gateway API v1.2.0 CRDs
+# we installed in the previous step — major.minor must match across the stack.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: envoy-gateway
+  namespace: flux-system
+spec:
+  targetNamespace: envoy-gateway-system
+  releaseName: envoy-gateway
+  interval: 1h
+  chart:
+    spec:
+      chart: gateway-helm
+      version: "1.2.x"
+      sourceRef:
+        kind: HelmRepository
+        name: envoy
+        namespace: flux-system
+      interval: 24h
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    # Scale up later if needed — Envoy Gateway controller is stateless.
+    deployment:
+      replicas: 1
+      envoyGateway:
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 256Mi

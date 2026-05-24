@@ -1,0 +1,12 @@
+---
+# Envoy Gateway distributes its Helm chart via an OCI registry (not the
+# traditional HTTP-based Helm repo). Flux supports this via type: oci.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: envoy
+  namespace: flux-system
+spec:
+  type: oci
+  interval: 24h
+  url: oci://docker.io/envoyproxy
