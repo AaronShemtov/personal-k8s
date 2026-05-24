@@ -1,14 +1,13 @@
 ---
-# HTTPRoute that ties the three services together on hostname 1ms.my.
-#
 # Routing rules (Gateway API matches by specificity, not array order):
-#   POST /shorten, POST /createcustom  → writer service
-#   GET  /<6-char base62 code>          → reader service (301 redirect)
-#   GET  /, /*.ico, /*.webp, ...        → frontend service (catch-all)
+#   /shorten, /createcustom  → writer service (writer ignores GET via mode flag)
+#   /<6-char base62 code>     → reader service (regex by length excludes longer paths)
+#   /, /*.ico, /*.webp, ...   → frontend service (catch-all)
 #
-# The /healthz endpoint on each service is accessed via kubelet probes
-# directly to pods, not through this HTTPRoute — so the catch-all route
-# sending /healthz to frontend is fine (frontend has its own /healthz).
+# Removed `method: POST` matching because it requires experimental feature flag
+# in Envoy Gateway 1.2.x. Path uniqueness alone is sufficient: frontend nginx
+# doesn't serve /shorten or /createcustom, and the 6-char regex won't match
+# longer asset paths like /websitebanner.webp.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -22,35 +21,31 @@ spec:
   hostnames:
     - "1ms.my"
   rules:
-    # Writer endpoints — exact paths, POST only.
-    # Two matches in one rule = OR; both route to the same backend.
+    # Writer endpoints — exact paths, any method.
+    # Writer handler only registers POST, so a stray GET would 404 from the
+    # backend itself, but that's fine — same effect as method-level routing.
     - matches:
         - path:
             type: Exact
             value: /shorten
-          method: POST
         - path:
             type: Exact
             value: /createcustom
-          method: POST
       backendRefs:
         - name: urlshortener-writer
           port: 80
 
-    # Reader endpoint — any GET to a path that looks like a 6-char short code.
-    # Regex ensures we don't accidentally hijack static asset paths (which
-    # have file extensions) or longer arbitrary paths.
+    # Reader endpoint — short codes are exactly 6 base62 chars.
+    # The $ anchor prevents matching paths with extensions or longer segments.
     - matches:
         - path:
             type: RegularExpression
             value: "^/[a-zA-Z0-9]{6}$"
-          method: GET
       backendRefs:
         - name: urlshortener-reader
           port: 80
 
-    # Catch-all — frontend serves "/", static assets, and any unmatched path.
-    # nginx in the frontend pod handles the SPA fallback (try_files ... /index.html).
+    # Catch-all — frontend serves "/" and static assets.
     - matches:
         - path:
             type: PathPrefix
