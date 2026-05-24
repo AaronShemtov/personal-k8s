@@ -3,6 +3,7 @@
 # Read-only path: NoSQL Get, no writes possible (MODE=reader doesn't register
 # POST handlers — see internal/handler/main.go).
 #
+#
 # Two replicas to start. In a later iteration this becomes HPA-scaled
 # based on CPU since reads are 95%+ of traffic in a URL shortener.
 apiVersion: apps/v1
