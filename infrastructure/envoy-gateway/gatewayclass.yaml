@@ -1,0 +1,14 @@
+---
+# Binds the name "eg" to the Envoy Gateway controller. Gateway resources
+# reference this via gatewayClassName: eg.
+#
+# Why this isn't auto-created by the Helm chart: one controller can serve
+# multiple GatewayClasses with different EnvoyProxy configs (e.g. one
+# internal class with mTLS, one external without). Leaving the choice to
+# the user is intentional.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller

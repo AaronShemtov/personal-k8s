@@ -1,0 +1,29 @@
+---
+# Single Gateway for the whole homelab cluster. All apps attach via HTTPRoute.
+#
+# HTTP-only and not HTTPS:
+# Cloudflare terminates TLS at the edge (Universal SSL, free).
+# Cloudflare Tunnel carries plain HTTP from edge → cloudflared pod → here.
+# No reason to do TLS twice; Cloudflare↔origin link is already private
+# (outbound-only tunnel, never exposed to internet).
+#
+# allowedRoutes.namespaces.from: All:
+# each app lives in its own namespace (urlshortener, future cv, portfolio).
+# they all need to attach HTTPRoute to this single Gateway.
+# for tighter security later, switch to "Selector" + label-match.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: homelab-gateway
+  namespace: envoy-gateway-system
+spec:
+  gatewayClassName: eg
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - kind: HTTPRoute
