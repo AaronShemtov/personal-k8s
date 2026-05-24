@@ -1,0 +1,64 @@
+---
+# Installs ESO controller into external-secrets namespace.
+#
+# Components installed (all in one Deployment per replica):
+#   - main controller — watches ExternalSecret CRs, fetches values from
+#     SecretStores, creates/updates k8s Secrets
+#   - webhook — validates SecretStore/ExternalSecret CRDs
+#   - cert-controller — manages self-signed certs for the webhook
+#
+# Authentication to OCI Vault uses Instance Principal — no static credentials.
+# The OKE worker node identity (via Dynamic Group oke-urlshortener-nodes)
+# grants the controller access to read secrets in the personal compartment.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-secrets
+  namespace: flux-system
+spec:
+  targetNamespace: external-secrets
+  releaseName: external-secrets
+  interval: 1h
+  chart:
+    spec:
+      chart: external-secrets
+      version: "0.10.x"
+      sourceRef:
+        kind: HelmRepository
+        name: external-secrets
+        namespace: flux-system
+      interval: 24h
+  install:
+    createNamespace: true
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  values:
+    # Single replica — controller is stateless, fine for personal cluster
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    webhook:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
+    certController:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
