@@ -1,0 +1,30 @@
+---
+# Overrides the default data-plane Service type from LoadBalancer to ClusterIP.
+#
+# Why: we don't want OCI to provision a Load Balancer for us — it would consume
+# our single Always Free LB slot AND expose the origin IP to the internet
+# (Cloudflare Tunnel makes the origin reachable from edge to pod, no public
+# IP needed). ClusterIP keeps the Service internal to the cluster.
+#
+# This EnvoyProxy is referenced by GatewayClass "eg" via parametersRef, so
+# every Gateway using class "eg" inherits this config.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: cluster-proxy
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: ClusterIP
+      envoyDeployment:
+        replicas: 1
+        container:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
