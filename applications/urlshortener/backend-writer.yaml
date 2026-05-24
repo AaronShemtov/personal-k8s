@@ -45,7 +45,7 @@ spec:
         - name: backend
           # Immutable tag pinned to a commit SHA. Update on every release.
           # The "latest" tag exists for ad-hoc pulls but is never used in deployments.
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:c655642
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:3d10d51
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
