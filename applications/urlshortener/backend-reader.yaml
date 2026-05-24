@@ -43,7 +43,7 @@ spec:
                     component: reader
       containers:
         - name: backend
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:3d10d51
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:0.0.0 # {"$imagepolicy": "flux-system:urlshortener-backend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
