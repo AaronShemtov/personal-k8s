@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: urlshortener
+  labels:
+    app.kubernetes.io/name: urlshortener
+    # Enforce the Restricted Pod Security Standard for this namespace.
+    # Non-root, no host networking, dropped capabilities — required of every workload.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: urlshortener
+  namespace: urlshortener
+# Pods using this ServiceAccount will inherit this imagePullSecret without
+# needing to repeat it in each Pod spec.
+# The referenced Secret is created by the ExternalSecret in this same folder.
+imagePullSecrets:
+  - name: ocir-pull-secret
