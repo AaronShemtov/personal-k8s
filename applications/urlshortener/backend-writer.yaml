@@ -1,0 +1,120 @@
+---
+# Writer pods accept POST /shorten and POST /createcustom.
+# They write to OCI NoSQL via Instance Principal auth — no static creds.
+#
+# Two replicas for rolling updates: one drains while the other serves.
+# Anti-affinity spreads them across different nodes (best effort) so a
+# single-node outage doesn't take down writes entirely.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: urlshortener-writer
+  namespace: urlshortener
+  labels:
+    app: urlshortener
+    component: writer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: urlshortener
+      component: writer
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: urlshortener
+        component: writer
+    spec:
+      serviceAccountName: urlshortener   # for OCIR pull secret
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: urlshortener
+                    component: writer
+      containers:
+        - name: backend
+          # Immutable tag pinned to a commit SHA. Update on every release.
+          # The "latest" tag exists for ad-hoc pulls but is never used in deployments.
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:c655642
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: MODE
+              value: writer
+            - name: PORT
+              value: "8080"
+            - name: BASE_URL
+              value: https://1ms.my
+            - name: NOSQL_ENDPOINT
+              value: https://nosql.il-jerusalem-1.oci.oraclecloud.com
+            - name: NOSQL_TABLE
+              value: urls
+            - name: OCI_COMPARTMENT_OCID
+              value: ocid1.compartment.oc1..aaaaaaaabdv5v3fygzdcql5avbbsc4dd5lyjglcyfi3xr2hr2scbhl4mcx2q
+            - name: SHORT_CODE_LENGTH
+              value: "6"
+          # Liveness: process alive. /healthz only checks the process itself —
+          # no NoSQL ping, so a DB blip won't kill the pod and trigger restarts.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            failureThreshold: 3
+          # Readiness: process AND NoSQL reachable. If NoSQL is down the pod
+          # is yanked from Service rotation but not restarted.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: urlshortener-writer
+  namespace: urlshortener
+  labels:
+    app: urlshortener
+    component: writer
+spec:
+  selector:
+    app: urlshortener
+    component: writer
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
