@@ -1,0 +1,35 @@
+---
+# Source: clones the upstream Gateway API repo, but only the CRD directory
+# to keep the in-cluster source object small.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: gateway-api
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://github.com/kubernetes-sigs/gateway-api
+  ref:
+    tag: v1.2.0
+  ignore: |
+    /*
+    !/config/crd/standard
+---
+# Apply the standard (GA) CRDs: GatewayClass, Gateway, HTTPRoute, ReferenceGrant.
+# Experimental routes (TCPRoute, UDPRoute, GRPCRoute) are not included — we don't need them.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: gateway-api-crds
+  namespace: flux-system
+spec:
+  interval: 1h
+  retryInterval: 2m
+  timeout: 5m
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: gateway-api
+    namespace: flux-system
+  path: ./config/crd/standard
