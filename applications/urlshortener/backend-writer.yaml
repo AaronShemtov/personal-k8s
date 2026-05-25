@@ -1,5 +1,7 @@
 # Writer pods accept POST /shorten and POST /createcustom.
-# They write to OCI NoSQL via Instance Principal auth — no static creds.
+# They write to Oracle Autonomous JSON Database via SODA REST API.
+# Auth is Basic Auth — username is the static value ADMIN, password comes
+# from a k8s Secret (adb-credentials) sourced from OCI Vault via ESO.
 #
 # Two replicas for rolling updates: one drains while the other serves.
 # Anti-affinity spreads them across different nodes (best effort) so a
@@ -42,9 +44,8 @@ spec:
                     component: writer
       containers:
         - name: backend
-          # Immutable tag pinned to a commit SHA. Update on every release.
-          # The "latest" tag exists for ad-hoc pulls but is never used in deployments.
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:0.0.4 # {"$imagepolicy": "flux-system:urlshortener-backend"}
+          # Flux Image Automation updates the tag on every new OCIR push.
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:0.0.3 # {"$imagepolicy": "flux-system:urlshortener-backend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -57,16 +58,22 @@ spec:
               value: "8080"
             - name: BASE_URL
               value: https://1ms.my
-            - name: NOSQL_ENDPOINT
-              value: https://nosql.il-jerusalem-1.oci.oraclecloud.com
-            - name: NOSQL_TABLE
-              value: urls
-            - name: OCI_COMPARTMENT_OCID
-              value: ocid1.compartment.oc1..aaaaaaaabdv5v3fygzdcql5avbbsc4dd5lyjglcyfi3xr2hr2scbhl4mcx2q
             - name: SHORT_CODE_LENGTH
               value: "6"
-          # Liveness: process alive. /healthz only checks the process itself —
-          # no NoSQL ping, so a DB blip won't kill the pod and trigger restarts.
+            # ADB / SODA REST endpoint. Note the path includes /ords/admin/
+            # — we use the ADMIN schema because Always Free ATP doesn't let
+            # us cleanly REST-enable a separate user schema.
+            - name: ADB_BASE_URL
+              value: https://GB6D5BC088AFCDA-URLSHORTENERJSON.adb.il-jerusalem-1.oraclecloudapps.com/ords/admin/soda/latest
+            - name: ADB_COLLECTION
+              value: urls
+            - name: ADB_USERNAME
+              value: ADMIN
+            - name: ADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: adb-credentials
+                  key: password
           livenessProbe:
             httpGet:
               path: /healthz
@@ -74,8 +81,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 30
             failureThreshold: 3
-          # Readiness: process AND NoSQL reachable. If NoSQL is down the pod
-          # is yanked from Service rotation but not restarted.
           readinessProbe:
             httpGet:
               path: /readyz

@@ -1,7 +1,6 @@
 # Reader pods serve GET /{code} → 301 redirect.
-# Read-only path: NoSQL Get, no writes possible (MODE=reader doesn't register
-# POST handlers — see internal/handler/main.go).
-#
+# Read-only path: SODA REST GET, no writes possible (MODE=reader doesn't
+# register POST handlers — see main.go).
 #
 # Two replicas to start. In a later iteration this becomes HPA-scaled
 # based on CPU since reads are 95%+ of traffic in a URL shortener.
@@ -43,7 +42,7 @@ spec:
                     component: reader
       containers:
         - name: backend
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:0.0.4 # {"$imagepolicy": "flux-system:urlshortener-backend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:0.0.3 # {"$imagepolicy": "flux-system:urlshortener-backend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -56,12 +55,17 @@ spec:
               value: "8080"
             - name: BASE_URL
               value: https://1ms.my
-            - name: NOSQL_ENDPOINT
-              value: https://nosql.il-jerusalem-1.oci.oraclecloud.com
-            - name: NOSQL_TABLE
+            - name: ADB_BASE_URL
+              value: https://GB6D5BC088AFCDA-URLSHORTENERJSON.adb.il-jerusalem-1.oraclecloudapps.com/ords/admin/soda/latest
+            - name: ADB_COLLECTION
               value: urls
-            - name: OCI_COMPARTMENT_OCID
-              value: ocid1.compartment.oc1..aaaaaaaabdv5v3fygzdcql5avbbsc4dd5lyjglcyfi3xr2hr2scbhl4mcx2q
+            - name: ADB_USERNAME
+              value: ADMIN
+            - name: ADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: adb-credentials
+                  key: password
           livenessProbe:
             httpGet:
               path: /healthz
