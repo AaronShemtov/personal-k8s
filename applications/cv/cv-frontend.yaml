@@ -1,0 +1,115 @@
+# cv-frontend serves cv.1ms.my — a static one-page CV.
+#
+# No backend, no DB, no secrets — just nginx-unprivileged serving HTML/CSS/JS/PDF
+# from the baked-in image. Each content change (CV edits, new PDF) triggers a
+# rebuild via GitHub Actions; Flux Image Automation then bumps the tag below.
+#
+# Resource footprint is intentionally small (10m CPU req, 32 MiB mem req).
+# nginx-unprivileged sustains thousands of req/s on a single replica at this
+# traffic profile; two replicas exist for HA during rolling updates.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cv-frontend
+  namespace: cv
+  labels:
+    app: cv-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cv-frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: cv-frontend
+    spec:
+      serviceAccountName: cv # carries the OCIR imagePullSecret
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: cv-frontend
+      containers:
+        - name: nginx
+          # Flux Image Automation rewrites this tag on every new OCIR push
+          # matching the semver policy `>=0.0.0`. We pin to 0.0.1 initially —
+          # if the first GHA build hasn't completed yet, this image won't pull;
+          # check OCIR Console -> cv-frontend for the latest tag and adjust.
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/cv-frontend:0.0.1 # {"$imagepolicy": "flux-system:cv-frontend"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          # nginx-unprivileged uses UID 101; readOnlyRootFilesystem requires
+          # writable mounts for cache/PID/temp, provided as emptyDir below.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+            - name: nginx-tmp
+              mountPath: /tmp
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: nginx-tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cv-frontend
+  namespace: cv
+  labels:
+    app: cv-frontend
+spec:
+  selector:
+    app: cv-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

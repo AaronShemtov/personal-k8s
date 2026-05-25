@@ -1,0 +1,29 @@
+---
+# Routes all traffic for hostname cv.1ms.my to the cv-frontend Service.
+#
+# parentRefs references the same homelab-gateway that handles 1ms.my,
+# so a single Envoy data-plane handles all hostnames — Cloudflare Tunnel
+# already forwards cv.1ms.my to this same Envoy data-plane service.
+#
+# The Gateway has `allowedRoutes.namespaces.from: All`, so HTTPRoutes from
+# any namespace (including this "cv" namespace) attach without a ReferenceGrant.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cv
+  namespace: cv
+spec:
+  parentRefs:
+    - name: homelab-gateway
+      namespace: envoy-gateway-system
+      sectionName: http
+  hostnames:
+    - "cv.1ms.my"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: cv-frontend
+          port: 80

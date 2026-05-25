@@ -1,4 +1,13 @@
 ---
+# Image Automation pipeline for all sites.
+#
+# Each tracked OCIR repo gets:
+#   - ImageRepository — Flux scans the registry every 2 minutes
+#   - ImagePolicy     — picks the highest tag matching semver `>=0.0.0`
+#
+# A single ImageUpdateAutomation at the bottom watches every Deployment YAML
+# under ./applications (any namespace, any subfolder) for the marker
+# `# {"$imagepolicy": "flux-system:<policy-name>"}` and bumps the tag.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -45,8 +54,37 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# Simplified commit message template — iterates over Updated.Images as a slice,
-# letting each element stringify itself via the ImageRef.String() method.
+# cv.1ms.my — static CV site.
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: cv-frontend
+  namespace: flux-system
+spec:
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/cv-frontend
+  interval: 2m
+  secretRef:
+    name: ocir-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: cv-frontend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: cv-frontend
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
+# Reuses the flux-system GitRepository (SSH deploy key with write access),
+# so the same credentials Flux uses to PULL manifests also let it PUSH
+# tag-bump commits.
+#
+# Path is the whole ./applications tree — covers urlshortener/, cv/, and any
+# future subfolder. The automation only edits files containing the marker
+# comment, so subfolders without markers are ignored.
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageUpdateAutomation
 metadata:
@@ -66,7 +104,7 @@ spec:
         email: flux@1ms.my
         name: Flux Image Automation
       messageTemplate: |
-        chore(images): bump urlshortener
+        chore(images): bump
 
         {{ range .Updated.Images -}}
         - {{ . }}
@@ -75,4 +113,4 @@ spec:
       branch: main
   update:
     strategy: Setters
-    path: ./applications/urlshortener
+    path: ./applications
