@@ -45,7 +45,7 @@ spec:
           # matching the semver policy `>=0.0.0`. We pin to 0.0.1 initially â€”
           # if the first GHA build hasn't completed yet, this image won't pull;
           # check OCIR Console -> infra-frontend for the latest tag and adjust.
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/infra-frontend:0.0.4 # {"$imagepolicy": "flux-system:infra-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/infra-frontend:0.0.5 # {"$imagepolicy": "flux-system:infra-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
