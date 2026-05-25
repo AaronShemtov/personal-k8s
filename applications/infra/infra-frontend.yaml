@@ -1,6 +1,6 @@
-# infra-frontend serves infra.1ms.my — a static one-page CV.
+﻿# infra-frontend serves infra.1ms.my â€” a static one-page CV.
 #
-# No backend, no DB, no secrets — just nginx-unprivileged serving HTML/CSS/JS/PDF
+# No backend, no DB, no secrets â€” just nginx-unprivileged serving HTML/CSS/JS/PDF
 # from the baked-in image. Each content change (CV edits, new PDF) triggers a
 # rebuild via GitHub Actions; Flux Image Automation then bumps the tag below.
 #
@@ -29,7 +29,7 @@ spec:
       labels:
         app: infra-frontend
     spec:
-      serviceAccountName: cv # carries the OCIR imagePullSecret
+      serviceAccountName: infra # carries the OCIR imagePullSecret
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -42,7 +42,7 @@ spec:
       containers:
         - name: nginx
           # Flux Image Automation rewrites this tag on every new OCIR push
-          # matching the semver policy `>=0.0.0`. We pin to 0.0.1 initially —
+          # matching the semver policy `>=0.0.0`. We pin to 0.0.1 initially â€”
           # if the first GHA build hasn't completed yet, this image won't pull;
           # check OCIR Console -> infra-frontend for the latest tag and adjust.
           image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/infra-frontend:0.0.1 # {"$imagepolicy": "flux-system:infra-frontend"}
