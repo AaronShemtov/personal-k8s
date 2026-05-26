@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pwd
+  labels:
+    app.kubernetes.io/name: pwd
+    # Restricted PodSecurityStandard: same as urlshortener namespace.
+    # nginx-unprivileged image runs as UID 101 so this is compatible.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pwd
+  namespace: pwd
+# Pods using this ServiceAccount inherit imagePullSecrets without each Pod
+# spec restating it. The Secret itself is provisioned by the ExternalSecret
+# in this same folder, sourced from OCI Vault via ESO.
+imagePullSecrets:
+  - name: ocir-pull-secret

@@ -102,6 +102,30 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
+# pwd.1ms.my — password generator static site.
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: pwd-frontend
+  namespace: flux-system
+spec:
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/pwd-frontend
+  interval: 2m
+  secretRef:
+    name: ocir-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: pwd-frontend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: pwd-frontend
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
 # Reuses the flux-system GitRepository (SSH deploy key with write access),
 # so the same credentials Flux uses to PULL manifests also let it PUSH
 # tag-bump commits.
