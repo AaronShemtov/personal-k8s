@@ -47,6 +47,20 @@ spec:
     grafana:
       enabled: false
 
+      # Even though bundled Grafana is disabled, we keep the chart's default
+      # dashboard ConfigMaps. The chart generates them with label
+      # grafana_dashboard=1, which the standalone Grafana's sidecar discovers
+      # automatically — so we get the full kubernetes-mixin dashboard set
+      # (API server, kubelet, cluster compute, pod resources, networking, etc.)
+      # for free.
+      defaultDashboardsEnabled: true
+      forceDeployDashboards: true
+      sidecar:
+        dashboards:
+          enabled: true
+          label: grafana_dashboard
+          labelValue: "1"
+
     # ------------------------------------------------------------------
     # Prometheus
     # ------------------------------------------------------------------

@@ -127,7 +127,11 @@ spec:
         label: grafana_dashboard
         labelValue: "1"
         folder: /tmp/dashboards
-        searchNamespace: monitoring
+        # Search across all namespaces. The kube-prometheus-stack chart
+        # creates its dashboard ConfigMaps in the monitoring namespace,
+        # but if a future chart drops dashboards elsewhere (e.g. Loki
+        # dashboards in a sub-release) we want to pick them up too.
+        searchNamespace: ALL
         # Provisioner config for the folder
         provider:
           allowUiUpdates: false
