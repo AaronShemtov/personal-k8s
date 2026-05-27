@@ -42,9 +42,13 @@ spec:
     # tracks Grafana releases on its own cadence, so for predictability we
     # set the image tag here rather than relying on whatever the chart
     # picked. Bump deliberately when you want a new Grafana version.
+    #
+    # repository is just "grafana/grafana" — the chart prepends docker.io/
+    # automatically. Adding "docker.io/" here would result in the wrong
+    # URL "docker.io/docker.io/grafana/grafana".
     image:
-      repository: docker.io/grafana/grafana
-      tag: "11.3.0"
+      repository: grafana/grafana
+      tag: "11.3.1"
       pullPolicy: IfNotPresent
 
     resources:
