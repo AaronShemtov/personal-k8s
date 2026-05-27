@@ -40,7 +40,7 @@ spec:
                     component: frontend
       containers:
         - name: nginx
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-frontend:0.0.4 # {"$imagepolicy": "flux-system:urlshortener-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-frontend:0.0.5 # {"$imagepolicy": "flux-system:urlshortener-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
