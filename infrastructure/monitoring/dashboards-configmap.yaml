@@ -1,0 +1,483 @@
+---
+# Each ConfigMap in this file carries one Grafana dashboard JSON. The Grafana
+# sidecar (configured in grafana.yaml) watches for ConfigMaps with the label
+# grafana_dashboard=1 in the monitoring namespace and auto-imports them on
+# Grafana startup.
+#
+# Dashboard JSON is the full Grafana dashboard model (panels, queries,
+# variables, layout). We use trimmed-down hand-curated dashboards instead
+# of the giant community ones — they target our specific stack.
+
+# ============================================================================
+# 1. CLUSTER OVERVIEW — nodes, pods, basic resource view
+# ============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-cluster-overview
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  cluster-overview.json: |-
+    {
+      "annotations": { "list": [] },
+      "editable": false,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Nodes Ready",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_node_status_condition{condition='Ready',status='true'})",
+            "refId": "A"
+          }],
+          "options": { "colorMode": "value", "graphMode": "none" }
+        },
+        {
+          "type": "stat",
+          "title": "Total Pods Running",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_phase{phase='Running'})",
+            "refId": "A"
+          }],
+          "options": { "colorMode": "value", "graphMode": "none" }
+        },
+        {
+          "type": "stat",
+          "title": "Pods Not Ready",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_ready{condition='false'})",
+            "refId": "A"
+          }],
+          "options": { "colorMode": "value", "graphMode": "none" },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  { "value": null, "color": "green" },
+                  { "value": 1, "color": "red" }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Pod Restarts (last 24h)",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(increase(kube_pod_container_status_restarts_total[24h]))",
+            "refId": "A"
+          }],
+          "options": { "colorMode": "value", "graphMode": "none" },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  { "value": null, "color": "green" },
+                  { "value": 1, "color": "yellow" },
+                  { "value": 5, "color": "red" }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Node CPU Usage (%)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {
+            "defaults": { "unit": "percent", "min": 0, "max": 100 }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Node Memory Usage (%)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {
+            "defaults": { "unit": "percent", "min": 0, "max": 100 }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Pods by Namespace",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace) (kube_pod_info)",
+            "legendFormat": "{{namespace}}",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "Pod Restart Rate (per 5min)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total[5m]))",
+            "legendFormat": "{{namespace}}/{{pod}}",
+            "refId": "A"
+          }]
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["cluster", "overview"],
+      "templating": { "list": [] },
+      "time": { "from": "now-6h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Cluster — Overview",
+      "uid": "cluster-overview",
+      "version": 1
+    }
+
+---
+# ============================================================================
+# 2. APPLICATIONS — per-namespace traffic, pod resource usage
+# ============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-applications
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  applications.json: |-
+    {
+      "annotations": { "list": [] },
+      "editable": false,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "type": "stat",
+          "title": "URL Shortener — Pods",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_phase{namespace='urlshortener',phase='Running'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "stat",
+          "title": "CV — Pods",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_phase{namespace='cv',phase='Running'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "stat",
+          "title": "Infra — Pods",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_phase{namespace='infra',phase='Running'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "stat",
+          "title": "Pwd — Pods",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_phase{namespace='pwd',phase='Running'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "CPU Usage by Application Pod",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~'urlshortener|cv|infra|pwd',container!=''}[5m]))",
+            "legendFormat": "{{namespace}}/{{pod}}",
+            "refId": "A"
+          }],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        },
+        {
+          "type": "timeseries",
+          "title": "Memory Usage by Application Pod",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~'urlshortener|cv|infra|pwd',container!=''})",
+            "legendFormat": "{{namespace}}/{{pod}}",
+            "refId": "A"
+          }],
+          "fieldConfig": { "defaults": { "unit": "bytes" } }
+        },
+        {
+          "type": "timeseries",
+          "title": "Network RX by Application Pod",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace, pod) (rate(container_network_receive_bytes_total{namespace=~'urlshortener|cv|infra|pwd'}[5m]))",
+            "legendFormat": "{{namespace}}/{{pod}}",
+            "refId": "A"
+          }],
+          "fieldConfig": { "defaults": { "unit": "Bps" } }
+        },
+        {
+          "type": "timeseries",
+          "title": "Network TX by Application Pod",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace, pod) (rate(container_network_transmit_bytes_total{namespace=~'urlshortener|cv|infra|pwd'}[5m]))",
+            "legendFormat": "{{namespace}}/{{pod}}",
+            "refId": "A"
+          }],
+          "fieldConfig": { "defaults": { "unit": "Bps" } }
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["applications"],
+      "templating": { "list": [] },
+      "time": { "from": "now-6h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Applications — 1ms.my Platform",
+      "uid": "applications",
+      "version": 1
+    }
+
+---
+# ============================================================================
+# 3. LOGS EXPLORER — Loki-backed log view per namespace
+# ============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-logs
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  logs.json: |-
+    {
+      "annotations": { "list": [] },
+      "editable": false,
+      "graphTooltip": 0,
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Log volume by namespace (lines/sec)",
+          "gridPos": { "h": 6, "w": 24, "x": 0, "y": 0 },
+          "datasource": { "type": "loki", "uid": "loki" },
+          "targets": [{
+            "expr": "sum by (namespace) (rate({namespace=~\".+\"}[1m]))",
+            "legendFormat": "{{namespace}}",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "logs",
+          "title": "Logs — filter by namespace via $ns variable",
+          "gridPos": { "h": 18, "w": 24, "x": 0, "y": 6 },
+          "datasource": { "type": "loki", "uid": "loki" },
+          "targets": [{
+            "expr": "{namespace=~\"$ns\"}",
+            "refId": "A"
+          }],
+          "options": {
+            "showTime": true,
+            "showLabels": false,
+            "showCommonLabels": false,
+            "wrapLogMessage": true,
+            "prettifyLogMessage": false,
+            "enableLogDetails": true,
+            "dedupStrategy": "none",
+            "sortOrder": "Descending"
+          }
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["logs", "loki"],
+      "templating": {
+        "list": [
+          {
+            "name": "ns",
+            "type": "query",
+            "datasource": { "type": "loki", "uid": "loki" },
+            "query": { "type": "labelValues", "label": "namespace" },
+            "current": { "text": "urlshortener", "value": "urlshortener" },
+            "includeAll": true,
+            "multi": true,
+            "label": "Namespace"
+          }
+        ]
+      },
+      "time": { "from": "now-1h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Logs — Explorer",
+      "uid": "logs-explorer",
+      "version": 1
+    }
+
+---
+# ============================================================================
+# 4. GITOPS — Flux reconciliation health
+# ============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-gitops
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  gitops.json: |-
+    {
+      "annotations": { "list": [] },
+      "editable": false,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Kustomizations — Ready",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(gotk_reconcile_condition{kind='Kustomization',type='Ready',status='True'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "stat",
+          "title": "Kustomizations — NOT Ready",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(gotk_reconcile_condition{kind='Kustomization',type='Ready',status='False'})",
+            "refId": "A"
+          }],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  { "value": null, "color": "green" },
+                  { "value": 1, "color": "red" }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "stat",
+          "title": "HelmReleases — Ready",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(gotk_reconcile_condition{kind='HelmRelease',type='Ready',status='True'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "stat",
+          "title": "HelmReleases — NOT Ready",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(gotk_reconcile_condition{kind='HelmRelease',type='Ready',status='False'})",
+            "refId": "A"
+          }],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  { "value": null, "color": "green" },
+                  { "value": 1, "color": "red" }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "table",
+          "title": "Reconciliation status — all Flux objects",
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "gotk_reconcile_condition{type='Ready'}",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": { "__name__": true, "instance": true, "job": true, "Time": true, "endpoint": true, "service": true, "container": true, "pod": true, "Value": false },
+                "renameByName": { "kind": "Kind", "name": "Name", "namespace": "Namespace", "status": "Ready" }
+              }
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Reconciliation duration (p95)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "histogram_quantile(0.95, sum by (kind, le) (rate(gotk_reconcile_duration_seconds_bucket[5m])))",
+            "legendFormat": "{{kind}}",
+            "refId": "A"
+          }],
+          "fieldConfig": { "defaults": { "unit": "s" } }
+        },
+        {
+          "type": "timeseries",
+          "title": "Image Automation activity",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (kind, name) (rate(gotk_reconcile_duration_seconds_count{kind=~'ImageRepository|ImagePolicy|ImageUpdateAutomation'}[5m]))",
+            "legendFormat": "{{kind}}/{{name}}",
+            "refId": "A"
+          }]
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["gitops", "flux"],
+      "templating": { "list": [] },
+      "time": { "from": "now-24h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "GitOps — Flux",
+      "uid": "gitops-flux",
+      "version": 1
+    }

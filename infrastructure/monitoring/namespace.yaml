@@ -1,0 +1,26 @@
+---
+# Dedicated namespace for the observability stack.
+#
+# Pod Security Standard = `privileged`. This is the *only* namespace with
+# this level of admission. We need it because:
+#   * node-exporter requires hostPID, hostNetwork, and several Linux
+#     capabilities to read kernel-level metrics. These are flatly rejected
+#     by both the `baseline` and `restricted` policies.
+#   * Grafana Alloy reads pod log files from /var/log/pods via a hostPath
+#     mount, which also needs privileged admission.
+#
+# Every other namespace on this cluster remains `restricted` — application
+# workloads (urlshortener, cv, infra, pwd) cannot deploy here, both because
+# of the namespace label `kubernetes.io/metadata.name=monitoring` not being
+# used by their HelmReleases / Deployments, and because the only nodes
+# they're allowed to schedule on are not the tainted observability node.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/audit: privileged
+    # Standard k8s name label.
+    kubernetes.io/metadata.name: monitoring

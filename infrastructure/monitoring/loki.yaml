@@ -1,0 +1,119 @@
+---
+# Loki — log aggregation for Grafana.
+#
+# Pinning chart version 6.20.0 (Loki 3.2.x).
+#
+# Mode: SingleBinary. For our scale (≤ 100 req/day, < 50 MB/month log volume)
+# a microservices Loki deployment would be massive overkill. SingleBinary
+# runs all components (ingester, querier, compactor, distributor) in one
+# pod, backed by a single PVC.
+#
+# Storage: filesystem driver on a Block Volume PVC. Long-term we could
+# migrate to OCI Object Storage (S3-compatible) but that's a Phase 2
+# concern — filesystem is fine for personal-scale data.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+  namespace: monitoring
+spec:
+  interval: 30m
+  timeout: 15m
+  chart:
+    spec:
+      chart: loki
+      version: "6.20.0"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: monitoring
+      interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    deploymentMode: SingleBinary
+
+    loki:
+      auth_enabled: false
+      commonConfig:
+        replication_factor: 1
+      storage:
+        type: filesystem
+      schemaConfig:
+        configs:
+          - from: "2024-04-01"
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+      # 30 days of logs. Compactor enforces retention by deleting old chunks.
+      limits_config:
+        retention_period: 168h     # 7 days
+        # Be lenient — we don't expect high cardinality but a misbehaving
+        # Alloy could push more streams than we expect.
+        max_global_streams_per_user: 10000
+        ingestion_rate_mb: 4
+        ingestion_burst_size_mb: 6
+      compactor:
+        working_directory: /var/loki/compactor
+        delete_request_store: filesystem
+        retention_enabled: true
+        retention_delete_delay: 2h
+
+    singleBinary:
+      replicas: 1
+      nodeSelector:
+        workload: observability
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+      persistence:
+        enabled: true
+        storageClass: oci-bv
+        size: 5Gi
+        accessModes:
+          - ReadWriteOnce
+
+    # We don't need the gateway (it's an nginx in front of Loki for
+    # auth/multi-tenant). Single binary, no auth, simple.
+    gateway:
+      enabled: false
+
+    # The chart provisions a 50 GB MinIO-backed cache by default. Disable —
+    # we use filesystem storage.
+    minio:
+      enabled: false
+    chunksCache:
+      enabled: false
+    resultsCache:
+      enabled: false
+
+    # Disable the additional components that only matter in microservices mode.
+    backend:
+      replicas: 0
+    read:
+      replicas: 0
+    write:
+      replicas: 0
+
+    # Don't deploy the test pod.
+    test:
+      enabled: false
+
+    # Sanity for OKE — Loki uses 9095 (gRPC) and 3100 (HTTP).
+    monitoring:
+      selfMonitoring:
+        enabled: false
+        grafanaAgent:
+          installOperator: false
+      lokiCanary:
+        enabled: false

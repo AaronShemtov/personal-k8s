@@ -1,0 +1,160 @@
+---
+# Grafana — standalone HelmRelease so the dashboards / datasources / auth
+# config is decoupled from the kube-prometheus-stack chart.
+#
+# Pinning chart version 8.5.2 (Grafana 11.3.x).
+#
+# Access model:
+#   * Anonymous users get the Viewer role automatically (no login needed).
+#     Anyone visiting grafana.1ms.my sees dashboards but cannot edit.
+#   * Admin signs in with the credentials reconciled from OCI Vault.
+#
+# Datasources: Prometheus + Loki, both in-cluster Services.
+# Dashboards: provisioned from ConfigMaps (sidecar discovers them by label).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  interval: 30m
+  timeout: 10m
+  chart:
+    spec:
+      chart: grafana
+      version: "8.5.2"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: monitoring
+      interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    nodeSelector:
+      workload: observability
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+    persistence:
+      enabled: true
+      type: pvc
+      storageClassName: oci-bv
+      size: 2Gi
+      accessModes:
+        - ReadWriteOnce
+
+    # Admin password comes from the ESO-reconciled Secret.
+    admin:
+      existingSecret: grafana-admin
+      userKey: admin-user
+      passwordKey: admin-password
+
+    # Inject the SECRET_KEY env var from its own ExternalSecret-managed secret.
+    envFromSecret: grafana-secret-key
+
+    # ---------------- grafana.ini ----------------
+    grafana.ini:
+      server:
+        root_url: "https://grafana.1ms.my"
+        serve_from_sub_path: false
+      security:
+        # SECRET_KEY env will override this at runtime via envFromSecret.
+        admin_user: admin
+        cookie_secure: true
+        cookie_samesite: lax
+      # Anonymous read-only access — anyone sees dashboards, no login required.
+      "auth.anonymous":
+        enabled: true
+        org_name: "Main Org."
+        org_role: Viewer
+        hide_version: true
+      auth:
+        disable_login_form: false
+        disable_signout_menu: false
+      "auth.basic":
+        enabled: true
+      users:
+        allow_sign_up: false
+        # New anonymous users join automatically as Viewer per auth.anonymous.
+      analytics:
+        reporting_enabled: false
+        check_for_updates: false
+        check_for_plugin_updates: false
+      log:
+        mode: console
+        level: info
+      # We are behind Cloudflare; trust the X-Forwarded-* headers it sends.
+      "auth.proxy":
+        enabled: false
+
+    # ---------------- Datasources ----------------
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: Prometheus
+            type: prometheus
+            uid: prometheus
+            url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+            access: proxy
+            isDefault: true
+            editable: false
+          - name: Loki
+            type: loki
+            uid: loki
+            url: http://loki.monitoring.svc.cluster.local:3100
+            access: proxy
+            editable: false
+
+    # ---------------- Dashboard provisioning ----------------
+    # The chart deploys a sidecar (kiwigrid/k8s-sidecar) that watches for
+    # ConfigMaps with label grafana_dashboard=1 in the same namespace and
+    # auto-imports them. The dashboard ConfigMaps are defined in
+    # dashboards-configmap.yaml.
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
+        folder: /tmp/dashboards
+        searchNamespace: monitoring
+        # Provisioner config for the folder
+        provider:
+          allowUiUpdates: false
+          foldersFromFilesStructure: true
+      datasources:
+        enabled: false
+
+    # ---------------- Default dashboards from chart ----------------
+    # The chart can bundle some "official" dashboards. We disable here and
+    # provide our own curated set via the ConfigMaps.
+    defaultDashboardsEnabled: false
+
+    # ---------------- Service ----------------
+    service:
+      type: ClusterIP
+      port: 80
+      targetPort: 3000
+
+    # ---------------- Probes ----------------
+    readinessProbe:
+      httpGet:
+        path: /api/health
+        port: 3000
+    livenessProbe:
+      httpGet:
+        path: /api/health
+        port: 3000
+      initialDelaySeconds: 60
+      timeoutSeconds: 30
+      failureThreshold: 10

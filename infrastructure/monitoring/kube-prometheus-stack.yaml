@@ -1,0 +1,198 @@
+---
+# kube-prometheus-stack — the de-facto bundle of Prometheus + Alertmanager +
+# node-exporter (DaemonSet) + kube-state-metrics + the Prometheus Operator.
+#
+# Pinning chart version 66.3.0 (Prometheus 2.55.x, Alertmanager 0.27.x,
+# kube-state-metrics 2.13.x). Bump deliberately by editing this value, never
+# implicitly via Helm range matching.
+#
+# Notes:
+#   * Grafana is in this chart by default — we DISABLE it here and run a
+#     standalone grafana HelmRelease instead, so dashboards / data sources
+#     can be customised without rebuilding the whole stack.
+#   * node-exporter requires hostPID/hostNetwork — that's why the namespace
+#     PSS is `privileged`.
+#   * Prometheus and Alertmanager are pinned to the observability node via
+#     nodeSelector + toleration on taint `workload=observability`.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  interval: 30m
+  timeout: 15m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: "66.3.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: monitoring
+      interval: 1h
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  values:
+    fullnameOverride: kube-prometheus-stack
+
+    # Disable bundled Grafana — we use a separate HelmRelease for Grafana
+    # so its config (dashboards, data sources, plugins) is decoupled.
+    grafana:
+      enabled: false
+
+    # ------------------------------------------------------------------
+    # Prometheus
+    # ------------------------------------------------------------------
+    prometheus:
+      prometheusSpec:
+        # 30-day retention — matches user requirement of one month of metrics.
+        retention: 7d
+        # Soft cap on disk usage; Prometheus will start dropping oldest blocks
+        # if this is reached before the time-based retention kicks in.
+        retentionSize: "4GB"
+
+        # Pin to the observability node.
+        nodeSelector:
+          workload: observability
+
+        # Resource budget — Prometheus is the heaviest pod in the stack.
+        resources:
+          requests:
+            cpu: 200m
+            memory: 1Gi
+          limits:
+            memory: 2Gi
+
+        # Persistent storage via OCI Block Volume. Size aligned with retention.
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: oci-bv
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 5Gi
+
+        # Scrape every ServiceMonitor in any namespace — we want one place to
+        # discover targets, not 20 release-specific selectors.
+        serviceMonitorSelectorNilUsesHelmValues: false
+        serviceMonitorSelector: {}
+        serviceMonitorNamespaceSelector: {}
+        podMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelector: {}
+        podMonitorNamespaceSelector: {}
+        ruleSelectorNilUsesHelmValues: false
+        ruleSelector: {}
+        ruleNamespaceSelector: {}
+        probeSelectorNilUsesHelmValues: false
+        probeSelector: {}
+        probeNamespaceSelector: {}
+
+        # Drop CPU-heavy histogram series we don't analyse — saves disk
+        # without hiding anything we plot.
+        # (No drops in Phase 1; left as a placeholder for tuning later.)
+
+    # ------------------------------------------------------------------
+    # Alertmanager
+    # ------------------------------------------------------------------
+    alertmanager:
+      # Use the Secret pre-created by ESO from Vault (see externalsecrets.yaml).
+      # Setting useExistingSecret: true tells the chart NOT to generate a
+      # secret from chart values.
+      alertmanagerSpec:
+        useExistingSecret: true
+        configSecret: alertmanager-kube-prometheus-stack-alertmanager
+
+        nodeSelector:
+          workload: observability
+
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: oci-bv
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 1Gi
+
+    # ------------------------------------------------------------------
+    # node-exporter — DaemonSet on every node
+    # ------------------------------------------------------------------
+    nodeExporter:
+      enabled: true
+    prometheus-node-exporter:
+      # node-exporter MUST run on every node, including the tainted
+      # observability node — otherwise we lose node metrics for that node.
+      tolerations:
+        - operator: Exists
+
+    # ------------------------------------------------------------------
+    # kube-state-metrics — single deployment
+    # ------------------------------------------------------------------
+    kube-state-metrics:
+      nodeSelector:
+        workload: observability
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+
+    # ------------------------------------------------------------------
+    # Prometheus Operator itself
+    # ------------------------------------------------------------------
+    prometheusOperator:
+      nodeSelector:
+        workload: observability
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+      admissionWebhooks:
+        patch:
+          # The patch Job that injects the webhook CA also needs to land
+          # somewhere with capacity.
+          nodeSelector:
+            workload: observability
+
+    # ------------------------------------------------------------------
+    # OKE-specific: skip scrape configs that need control-plane access
+    # ------------------------------------------------------------------
+    # The OKE control plane (api-server, scheduler, controller-manager,
+    # etcd, kube-proxy) is managed by Oracle — we don't have access to
+    # scrape it. Disable those scrape jobs to avoid noisy "DOWN" alerts.
+    kubeApiServer:
+      enabled: false
+    kubeControllerManager:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+    kubeProxy:
+      enabled: false
+    kubeEtcd:
+      enabled: false
+    coreDns:
+      enabled: true
+    kubelet:
+      enabled: true
+      serviceMonitor:
+        # kubelet metrics scrape may fail on managed clusters; keep cAdvisor.
+        cAdvisor: true
+        probes: true
