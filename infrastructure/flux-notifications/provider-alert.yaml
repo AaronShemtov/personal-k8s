@@ -1,0 +1,58 @@
+---
+# Flux Provider — wraps the Telegram credentials secret. The notification-
+# controller uses this to know HOW to send (telegram type) and WHERE
+# (chat_id pulled from the Secret's `address` key).
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: telegram
+  namespace: flux-system
+spec:
+  type: telegram
+  # The token + chat_id are pulled from this Secret (ESO-reconciled).
+  secretRef:
+    name: telegram-credentials
+---
+# Flux Alert — defines WHICH events trigger notifications.
+#
+# eventSeverity: info  — both info AND error events are forwarded (the
+#   "info" threshold is inclusive: anything at this level or higher).
+#
+# eventSources — Flux objects we care about:
+#   * HelmRelease     — fires on install/upgrade success and failure
+#   * Kustomization   — fires on apply success and failure
+#   * ImageRepository — periodic scans; the new-tag event is the one we
+#                       actually want, others are noisy
+#   * ImagePolicy     — fires when policy selects a new tag (= a release)
+#   * ImageUpdateAutomation — fires when it commits a tag bump
+#
+# `name: '*'` means "any object of this kind in any namespace".
+#
+# exclusionList — filters out the high-frequency periodic-scan events
+# from ImageRepository, leaving only the interesting "new tag found"
+# events. Without this you'd get spam every 2 minutes per repo.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: telegram-cluster-events
+  namespace: flux-system
+spec:
+  providerRef:
+    name: telegram
+  eventSeverity: info
+  eventSources:
+    - kind: HelmRelease
+      name: '*'
+    - kind: Kustomization
+      name: '*'
+    - kind: ImageRepository
+      name: '*'
+    - kind: ImagePolicy
+      name: '*'
+    - kind: ImageUpdateAutomation
+      name: '*'
+  exclusionList:
+    # Suppress the routine "scanned, no new tags" messages from ImageRepository.
+    # We keep the "new tag found" and any error events.
+    - "no new tags"
+    - "no updates made"
