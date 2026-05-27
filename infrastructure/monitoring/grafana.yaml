@@ -38,6 +38,15 @@ spec:
     nodeSelector:
       workload: observability
 
+    # Pin the Grafana image tag explicitly. The Helm chart's appVersion
+    # tracks Grafana releases on its own cadence, so for predictability we
+    # set the image tag here rather than relying on whatever the chart
+    # picked. Bump deliberately when you want a new Grafana version.
+    image:
+      repository: docker.io/grafana/grafana
+      tag: "11.3.0"
+      pullPolicy: IfNotPresent
+
     resources:
       requests:
         cpu: 50m
@@ -53,6 +62,19 @@ spec:
       accessModes:
         - ReadWriteOnce
 
+    # Mount the home-dashboard ConfigMap as a file inside the Grafana pod.
+    # The default_home_dashboard_path in grafana.ini reads from here.
+    #
+    # This is independent of the sidecar-based dashboard provisioning below.
+    # The sidecar loads dashboards INTO Grafana as DB rows; default_home
+    # needs a JSON file on disk because it's read at server startup before
+    # the sidecar has finished its first sync.
+    extraConfigmapMounts:
+      - name: grafana-home-dashboard
+        mountPath: /etc/grafana/dashboards/home
+        configMap: grafana-home-dashboard
+        readOnly: true
+
     # Admin password comes from the ESO-reconciled Secret.
     admin:
       existingSecret: grafana-admin
@@ -67,6 +89,15 @@ spec:
       server:
         root_url: "https://grafana.1ms.my"
         serve_from_sub_path: false
+      # Home dashboard — what the user sees when opening grafana.1ms.my.
+      # Points at a dashboard JSON file mounted from a ConfigMap via the
+      # extraConfigmapMounts section below.
+      #
+      # The "Cluster — Overview" dashboard is the most informative landing:
+      # node count, pod count, restarts, CPU/mem per node, log volume.
+      # Logged-in users can still change their personal home via Profile.
+      dashboards:
+        default_home_dashboard_path: /etc/grafana/dashboards/home/cluster-overview.json
       security:
         # SECRET_KEY env will override this at runtime via envFromSecret.
         admin_user: admin

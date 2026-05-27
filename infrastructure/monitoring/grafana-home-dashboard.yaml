@@ -1,0 +1,152 @@
+---
+# Home dashboard for Grafana — mounted as a file via extraConfigmapMounts
+# in grafana.yaml. grafana.ini's default_home_dashboard_path reads from
+# /etc/grafana/dashboards/home/cluster-overview.json, which is this file.
+#
+# IMPORTANT: this ConfigMap is NOT labeled grafana_dashboard=1, so the
+# sidecar will NOT also import it as a regular dashboard. The "Cluster —
+# Overview" entry under Dashboards comes from the dashboards-configmap.yaml
+# which DOES have that label.
+#
+# These are intentionally two copies of the same JSON — the disk file is
+# read once at Grafana startup for the home-page link, while the sidecar
+# version is the one users navigate to from the Dashboards list.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-home-dashboard
+  namespace: monitoring
+data:
+  cluster-overview.json: |-
+    {
+      "annotations": { "list": [] },
+      "editable": false,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Nodes Ready",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_node_status_condition{condition='Ready',status='true'})",
+            "refId": "A"
+          }],
+          "options": { "colorMode": "value", "graphMode": "none" }
+        },
+        {
+          "type": "stat",
+          "title": "Total Pods Running",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_phase{phase='Running'})",
+            "refId": "A"
+          }],
+          "options": { "colorMode": "value", "graphMode": "none" }
+        },
+        {
+          "type": "stat",
+          "title": "Pods Not Ready",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_ready{condition='false'})",
+            "refId": "A"
+          }],
+          "options": { "colorMode": "value", "graphMode": "none" },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  { "value": null, "color": "green" },
+                  { "value": 1, "color": "red" }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Pod Restarts (last 24h)",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(increase(kube_pod_container_status_restarts_total[24h]))",
+            "refId": "A"
+          }],
+          "options": { "colorMode": "value", "graphMode": "none" },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  { "value": null, "color": "green" },
+                  { "value": 1, "color": "yellow" },
+                  { "value": 5, "color": "red" }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Node CPU Usage (%)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {
+            "defaults": { "unit": "percent", "min": 0, "max": 100 }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Node Memory Usage (%)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {
+            "defaults": { "unit": "percent", "min": 0, "max": 100 }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Pods by Namespace",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace) (kube_pod_info)",
+            "legendFormat": "{{namespace}}",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "Pod Restart Rate (per 5min)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total[5m]))",
+            "legendFormat": "{{namespace}}/{{pod}}",
+            "refId": "A"
+          }]
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["cluster", "overview"],
+      "templating": { "list": [] },
+      "time": { "from": "now-6h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Cluster — Overview",
+      "uid": "cluster-overview",
+      "version": 1
+    }
