@@ -1,7 +1,13 @@
 ---
-# Flux Telegram Provider. Both bot token AND chat_id come from the
-# Secret referenced here — see externalsecret.yaml for how the Secret
-# is populated.
+# Flux Telegram Provider.
+#
+# Per the upstream telegram.go source:
+#   func NewTelegram(proxyURL, channel, token string)
+# The `channel` parameter is what gets validated against "" and becomes
+# the error "empty Telegram channel". It comes from spec.channel on the
+# Provider, NOT from a key in the Secret.
+#
+# The Secret needs only `data.token`.
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Provider
 metadata:
@@ -9,10 +15,10 @@ metadata:
   namespace: flux-system
 spec:
   type: telegram
+  channel: "-1003921436547"
   secretRef:
     name: telegram-credentials
 ---
-# Single consolidated Alert covering release events.
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
 metadata:
