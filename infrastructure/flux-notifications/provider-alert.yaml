@@ -1,11 +1,5 @@
 ---
-# Flux Provider for Telegram.
-#
-# spec.channel — the destination chat_id. For channels this is the
-# negative -100... number. Not a secret; it's the routing target.
-#
-# spec.secretRef — points to the Secret carrying only the bot token
-# (key: token).
+# Flux Provider for Telegram. spec.channel holds the channel chat_id.
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Provider
 metadata:
@@ -17,26 +11,58 @@ spec:
   secretRef:
     name: telegram-credentials
 ---
+# Flux Alert — TIGHTENED to avoid the noisy reconcile-diff messages.
+#
+# What we DO want in the channel:
+#   * ImagePolicy resolved a new tag — means a freshly-built image is
+#     about to be rolled out. Short message: "resolved to X.Y.Z".
+#   * ImageUpdateAutomation pushed a commit — means git has been
+#     updated with the new tag.
+#   * HelmRelease upgraded — means a chart bump landed.
+#
+# What we don't want:
+#   * Kustomization reconcile messages — they dump the entire list of
+#     every Namespace/ConfigMap/Deployment/etc. that was processed,
+#     producing a wall of text unreadable on mobile.
+#   * ImageRepository scan messages (now filtered by exclusionList).
+#
+# eventSeverity is set to `error` for Kustomizations so we'd still see
+# them if something breaks — but in a separate Alert with stricter scope.
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
 metadata:
-  name: telegram-cluster-events
+  name: telegram-release-events
   namespace: flux-system
 spec:
   providerRef:
     name: telegram
+  # info severity = both info and error events.
   eventSeverity: info
   eventSources:
-    - kind: HelmRelease
-      name: '*'
-    - kind: Kustomization
-      name: '*'
-    - kind: ImageRepository
-      name: '*'
     - kind: ImagePolicy
       name: '*'
     - kind: ImageUpdateAutomation
       name: '*'
+    - kind: HelmRelease
+      name: '*'
   exclusionList:
+    # Skip routine status events that have no operational value.
     - "no new tags"
     - "no updates made"
+    - "successful scan"
+---
+# Separate Alert just for Kustomization FAILURES. We still want to know
+# if `applications` or `infrastructure` fails to reconcile — but only
+# the error, not the full diff on every successful run.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: telegram-kustomization-errors
+  namespace: flux-system
+spec:
+  providerRef:
+    name: telegram
+  eventSeverity: error
+  eventSources:
+    - kind: Kustomization
+      name: '*'
