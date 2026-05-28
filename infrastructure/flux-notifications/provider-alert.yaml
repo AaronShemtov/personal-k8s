@@ -1,5 +1,7 @@
 ---
-# Flux Provider for Telegram. spec.channel holds the channel chat_id.
+# Flux Telegram Provider. Both bot token AND chat_id come from the
+# Secret referenced here — see externalsecret.yaml for how the Secret
+# is populated.
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Provider
 metadata:
@@ -7,22 +9,10 @@ metadata:
   namespace: flux-system
 spec:
   type: telegram
-  channel: "-1003921436547"
   secretRef:
     name: telegram-credentials
 ---
-# Single consolidated Alert.
-#
-# History: previous iteration split into two alerts (release-events +
-# kustomization-errors) which left a gap — info-level Kustomization
-# events with the huge apply diff were dropped, but so were the short
-# "Reconciliation finished" status messages we DO want. Result: silent
-# channel.
-#
-# This version keeps one alert with `info` severity covering all the
-# release-relevant sources, and uses exclusionList as a regex filter
-# to drop only the noisy apply diffs while keeping short summaries
-# and any error messages.
+# Single consolidated Alert covering release events.
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
 metadata:
@@ -41,16 +31,6 @@ spec:
       name: '*'
     - kind: ImageUpdateAutomation
       name: '*'
-  # exclusionList items are regular expressions matched against the
-  # event message. Anything matched is silently dropped.
   exclusionList:
-    # Drop the apply-diff lines. The Kustomization reconcile message
-    # is a multi-line list of "<Kind>/<ns>/<name> configured" entries.
-    # We match the pattern of any such line — if the message contains
-    # it, it's a diff dump, not a status summary.
-    - " configured\n"
-    - " configured$"
-    # Drop ImageRepository scan noise.
     - "no new tags"
     - "no updates made"
-    - "successful scan"
