@@ -45,7 +45,7 @@ spec:
           # matching the semver policy `>=0.0.0`. We pin to 0.0.1 initially —
           # if the first GHA build hasn't completed yet, this image won't pull;
           # check OCIR Console -> cv-frontend for the latest tag and adjust.
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/cv-frontend:0.0.10 # {"$imagepolicy": "flux-system:cv-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/cv-frontend:0.0.11 # {"$imagepolicy": "flux-system:cv-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
