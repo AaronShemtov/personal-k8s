@@ -11,58 +11,46 @@ spec:
   secretRef:
     name: telegram-credentials
 ---
-# Flux Alert — TIGHTENED to avoid the noisy reconcile-diff messages.
+# Single consolidated Alert.
 #
-# What we DO want in the channel:
-#   * ImagePolicy resolved a new tag — means a freshly-built image is
-#     about to be rolled out. Short message: "resolved to X.Y.Z".
-#   * ImageUpdateAutomation pushed a commit — means git has been
-#     updated with the new tag.
-#   * HelmRelease upgraded — means a chart bump landed.
+# History: previous iteration split into two alerts (release-events +
+# kustomization-errors) which left a gap — info-level Kustomization
+# events with the huge apply diff were dropped, but so were the short
+# "Reconciliation finished" status messages we DO want. Result: silent
+# channel.
 #
-# What we don't want:
-#   * Kustomization reconcile messages — they dump the entire list of
-#     every Namespace/ConfigMap/Deployment/etc. that was processed,
-#     producing a wall of text unreadable on mobile.
-#   * ImageRepository scan messages (now filtered by exclusionList).
-#
-# eventSeverity is set to `error` for Kustomizations so we'd still see
-# them if something breaks — but in a separate Alert with stricter scope.
+# This version keeps one alert with `info` severity covering all the
+# release-relevant sources, and uses exclusionList as a regex filter
+# to drop only the noisy apply diffs while keeping short summaries
+# and any error messages.
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
 metadata:
-  name: telegram-release-events
+  name: telegram-cluster-events
   namespace: flux-system
 spec:
   providerRef:
     name: telegram
-  # info severity = both info and error events.
   eventSeverity: info
   eventSources:
+    - kind: HelmRelease
+      name: '*'
+    - kind: Kustomization
+      name: '*'
     - kind: ImagePolicy
       name: '*'
     - kind: ImageUpdateAutomation
       name: '*'
-    - kind: HelmRelease
-      name: '*'
+  # exclusionList items are regular expressions matched against the
+  # event message. Anything matched is silently dropped.
   exclusionList:
-    # Skip routine status events that have no operational value.
+    # Drop the apply-diff lines. The Kustomization reconcile message
+    # is a multi-line list of "<Kind>/<ns>/<name> configured" entries.
+    # We match the pattern of any such line — if the message contains
+    # it, it's a diff dump, not a status summary.
+    - " configured\n"
+    - " configured$"
+    # Drop ImageRepository scan noise.
     - "no new tags"
     - "no updates made"
     - "successful scan"
----
-# Separate Alert just for Kustomization FAILURES. We still want to know
-# if `applications` or `infrastructure` fails to reconcile — but only
-# the error, not the full diff on every successful run.
-apiVersion: notification.toolkit.fluxcd.io/v1beta3
-kind: Alert
-metadata:
-  name: telegram-kustomization-errors
-  namespace: flux-system
-spec:
-  providerRef:
-    name: telegram
-  eventSeverity: error
-  eventSources:
-    - kind: Kustomization
-      name: '*'
