@@ -13,7 +13,7 @@ metadata:
   namespace: ai-sre-agent
 data:
   TELEGRAM_ALLOWED_USERS: "139236889"
-  GEMINI_MODEL: "gemini-3.5-flash"
+  GEMINI_MODEL: "gemini-1.5-flash"
 ---
 apiVersion: apps/v1
 kind: Deployment
