@@ -155,15 +155,13 @@ spec:
 # so the same credentials Flux uses to PULL manifests also let it PUSH
 # tag-bump commits.
 #
-# Path is the whole ./applications tree — covers urlshortener/, cv/, and any
-# future subfolder. The automation only edits files containing the marker
-# comment, so subfolders without markers are ignored.
+# Path is the whole ./applications tree — covers urlshortener/, cv/, pwd/,
+# infra/ and gemini-sre-agent/. The automation only edits files containing
+# the marker comment, so subfolders without markers are ignored.
 #
-# NOTE: the agent's Deployment lives under ./infrastructure, NOT ./applications,
-# so this automation does NOT currently bump the agent's tag automatically.
-# The ImageRepository/ImagePolicy above still let you query the latest tag and
-# can drive a separate automation later; for now the agent pins :latest and a
-# rollout restart picks up the newest :latest after each build.
+# The agent's Deployment lives under ./applications/gemini-sre-agent/ with the
+# marker `# {"$imagepolicy": "flux-system:gemini-sre-agent"}`, so its tag is
+# bumped automatically on every new OCIR build, exactly like the frontends.
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageUpdateAutomation
 metadata:
