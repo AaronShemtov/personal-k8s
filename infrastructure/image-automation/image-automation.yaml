@@ -126,6 +126,31 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
+# agent.1ms.my (future) — AI SRE agent.
+# Image tag scheme matches the others: 0.0.<run_number> from GitHub Actions.
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: gemini-sre-agent
+  namespace: flux-system
+spec:
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/gemini-sre-agent
+  interval: 2m
+  secretRef:
+    name: ocir-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: gemini-sre-agent
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: gemini-sre-agent
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
 # Reuses the flux-system GitRepository (SSH deploy key with write access),
 # so the same credentials Flux uses to PULL manifests also let it PUSH
 # tag-bump commits.
@@ -133,6 +158,12 @@ spec:
 # Path is the whole ./applications tree — covers urlshortener/, cv/, and any
 # future subfolder. The automation only edits files containing the marker
 # comment, so subfolders without markers are ignored.
+#
+# NOTE: the agent's Deployment lives under ./infrastructure, NOT ./applications,
+# so this automation does NOT currently bump the agent's tag automatically.
+# The ImageRepository/ImagePolicy above still let you query the latest tag and
+# can drive a separate automation later; for now the agent pins :latest and a
+# rollout restart picks up the newest :latest after each build.
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageUpdateAutomation
 metadata:

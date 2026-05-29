@@ -5,8 +5,6 @@
 # the bot will obey. NOT a secret (it's just an allow-list), so it lives
 # here in plain text. Get your ID by messaging @userinfobot.
 #
-# >>> REPLACE 000000000 WITH YOUR TELEGRAM USER ID BEFORE APPLYING <<<
-#
 # GEMINI_MODEL — overridable model name.
 apiVersion: v1
 kind: ConfigMap
@@ -15,7 +13,7 @@ metadata:
   namespace: ai-sre-agent
 data:
   TELEGRAM_ALLOWED_USERS: "139236889"
-  GEMINI_MODEL: "gemini-2.0-flash"
+  GEMINI_MODEL: "gemini-3.5-flash"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -40,6 +38,12 @@ spec:
         app: ai-sre-agent
     spec:
       serviceAccountName: ai-sre-agent
+      # OCIR is a private registry — the pod needs registry credentials to
+      # pull the image. Same docker-registry secret pattern as every other
+      # app: an ExternalSecret materialises `ocir-pull-secret` in this
+      # namespace (see ocir-pull-secret.yaml), referenced here.
+      imagePullSecrets:
+        - name: ocir-pull-secret
       # Run on the app nodes, not the observability node.
       affinity:
         nodeAffinity:
@@ -58,7 +62,7 @@ spec:
       containers:
         - name: agent
           image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/gemini-sre-agent:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: health
               containerPort: 8080
