@@ -1,4 +1,3 @@
----
 # Non-secret runtime config for the agent.
 #
 # TELEGRAM_ALLOWED_USERS — comma-separated Telegram numeric user IDs that
@@ -63,7 +62,7 @@ spec:
         - name: agent
           # Flux Image Automation rewrites this tag on every new OCIR push
           # matching the semver policy `>=0.0.0` (same as the frontends).
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/gemini-sre-agent:0.0.3 # {"$imagepolicy": "flux-system:gemini-sre-agent"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/gemini-sre-agent:0.0.4 # {"$imagepolicy": "flux-system:gemini-sre-agent"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: health
