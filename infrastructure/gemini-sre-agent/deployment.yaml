@@ -1,0 +1,116 @@
+---
+# Non-secret runtime config for the agent.
+#
+# TELEGRAM_ALLOWED_USERS — comma-separated Telegram numeric user IDs that
+# the bot will obey. NOT a secret (it's just an allow-list), so it lives
+# here in plain text. Get your ID by messaging @userinfobot.
+#
+# >>> REPLACE 000000000 WITH YOUR TELEGRAM USER ID BEFORE APPLYING <<<
+#
+# GEMINI_MODEL — overridable model name.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-sre-agent-config
+  namespace: ai-sre-agent
+data:
+  TELEGRAM_ALLOWED_USERS: "139236889"
+  GEMINI_MODEL: "gemini-2.0-flash"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-sre-agent
+  namespace: ai-sre-agent
+  labels:
+    app: ai-sre-agent
+spec:
+  replicas: 1
+  # Long-polling Telegram allows only ONE consumer per bot token. Two
+  # replicas would fight over getUpdates and throw 409 Conflict. Keep it
+  # at 1; use Recreate so a rollout never briefly runs two pods.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ai-sre-agent
+  template:
+    metadata:
+      labels:
+        app: ai-sre-agent
+    spec:
+      serviceAccountName: ai-sre-agent
+      # Run on the app nodes, not the observability node.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: workload
+                    operator: NotIn
+                    values: ["observability"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/gemini-sre-agent:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 8080
+          env:
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gemini-api-key
+                  key: api_key
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agent-telegram-token
+                  key: token
+            - name: TELEGRAM_ALLOWED_USERS
+              valueFrom:
+                configMapKeyRef:
+                  name: ai-sre-agent-config
+                  key: TELEGRAM_ALLOWED_USERS
+            - name: GEMINI_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: ai-sre-agent-config
+                  key: GEMINI_MODEL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 384Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      # Telegram polling has no local writes; readOnlyRootFilesystem is
+      # safe. google-generativeai may want a temp dir — give it an emptyDir.
+      volumes:
+        - name: tmp
+          emptyDir: {}

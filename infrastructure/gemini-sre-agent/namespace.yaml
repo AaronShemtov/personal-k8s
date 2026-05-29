@@ -1,7 +1,16 @@
 ---
+# Namespace for the AI SRE agent.
+#
+# PodSecurity = restricted: the agent is a plain non-root Python process
+# with no need for any elevated capability. Unlike the monitoring
+# namespace (which runs node-exporter and needs privileged), this one
+# stays locked down.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: ai-sre-agent
   labels:
-    name: ai-sre-agent
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+    kubernetes.io/metadata.name: ai-sre-agent

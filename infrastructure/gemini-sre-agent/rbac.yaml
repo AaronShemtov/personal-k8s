@@ -1,0 +1,82 @@
+---
+# Identity the agent pod runs as.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-sre-agent
+  namespace: ai-sre-agent
+---
+# ClusterRole defining EXACTLY what the agent may do cluster-wide.
+#
+# Philosophy: read broadly (it's an investigator — it needs to see pods,
+# logs, events, deployments, services, endpoints, ingresses across
+# namespaces), but mutate almost nothing.
+#
+# The ONLY write verbs granted are `patch` on deployments and services —
+# the two safe remediations (rollout restart, selector fix). No create,
+# no delete, no exec, no secret reads, no node mutation.
+#
+# Notably ABSENT:
+#   * secrets (get/list)        — the agent must never read secrets
+#   * pods/exec, pods/attach    — no shell into containers
+#   * delete on anything        — no destructive actions
+#   * cluster-admin style '*'   — everything is enumerated
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ai-sre-agent
+rules:
+  # ---- read: core ----
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - events
+      - services
+      - endpoints
+      - configmaps          # read-only: to spot missing/!referenced config
+      - namespaces
+      - nodes
+      - replicationcontrollers
+    verbs: ["get", "list", "watch"]
+  # ---- read: events.k8s.io (newer events API) ----
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  # ---- read: apps ----
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  # ---- read: networking ----
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  # ---- read: gateway API (we use Envoy Gateway) ----
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes", "gateways"]
+    verbs: ["get", "list", "watch"]
+  # ---- SAFE WRITE: rollout restart (patch deployment template) ----
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["patch"]
+  # ---- SAFE WRITE: fix service selector ----
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ai-sre-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ai-sre-agent
+subjects:
+  - kind: ServiceAccount
+    name: ai-sre-agent
+    namespace: ai-sre-agent
