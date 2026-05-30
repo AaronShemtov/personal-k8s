@@ -117,6 +117,7 @@ metadata:
 spec:
   selector:
     app: cv-frontend
+    # app: cv-frontend / for test ai-bot
   ports:
     - name: http
       port: 80
