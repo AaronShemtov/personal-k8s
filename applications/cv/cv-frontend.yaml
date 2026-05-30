@@ -53,9 +53,9 @@ spec:
           # stable CrashLoopBackOff. Flux will NOT fix this — the cluster
           # matches git, so from Flux's view this is the desired state.
           # Remove this command block (and this comment) to restore.
-          command: ["/bin/sh", "-c"]
-          args:
-            - 'echo "[entrypoint] starting cv-frontend"; sleep 2; echo "FATAL: CONFIG_PATH not set, cannot start nginx" >&2; exit 1'
+          # command: ["/bin/sh", "-c"]
+          # args:
+          #   - 'echo "[entrypoint] starting cv-frontend"; sleep 2; echo "FATAL: CONFIG_PATH not set, cannot start nginx" >&2; exit 1'
           ports:
             - name: http
               containerPort: 8080
