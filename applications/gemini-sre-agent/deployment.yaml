@@ -22,7 +22,7 @@ metadata:
   labels:
     app: ai-sre-agent
 spec:
-  replicas: 0
+  replicas: 1
   # Long-polling Telegram allows only ONE consumer per bot token. Two
   # replicas would fight over getUpdates and throw 409 Conflict. Keep it
   # at 1; use Recreate so a rollout never briefly runs two pods.
