@@ -62,7 +62,7 @@ spec:
         - name: agent
           # Flux Image Automation rewrites this tag on every new OCIR push
           # matching the semver policy `>=0.0.0` (same as the frontends).
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/gemini-sre-agent:0.0.7 # {"$imagepolicy": "flux-system:gemini-sre-agent"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/gemini-sre-agent:0.0.8 # {"$imagepolicy": "flux-system:gemini-sre-agent"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: health
