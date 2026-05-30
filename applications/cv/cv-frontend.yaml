@@ -116,7 +116,7 @@ metadata:
     app: cv-frontend
 spec:
   selector:
-    app: cv-frontend-xxx
+    app: cv-frontend
   ports:
     - name: http
       port: 80
