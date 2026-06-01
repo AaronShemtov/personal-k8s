@@ -74,7 +74,7 @@ spec:
 
         # Pin to the observability node.
         nodeSelector:
-          workload: observability
+          name: infra-pool
 
         # Resource budget — Prometheus is the heaviest pod in the stack.
         resources:
@@ -125,7 +125,7 @@ spec:
         configSecret: alertmanager-kube-prometheus-stack-alertmanager
 
         nodeSelector:
-          workload: observability
+          name: infra-pool
 
         resources:
           requests:
@@ -159,7 +159,7 @@ spec:
     # ------------------------------------------------------------------
     kube-state-metrics:
       nodeSelector:
-        workload: observability
+        name: infra-pool
       resources:
         requests:
           cpu: 25m
@@ -172,7 +172,7 @@ spec:
     # ------------------------------------------------------------------
     prometheusOperator:
       nodeSelector:
-        workload: observability
+        name: infra-pool
       resources:
         requests:
           cpu: 25m
@@ -184,7 +184,7 @@ spec:
           # The patch Job that injects the webhook CA also needs to land
           # somewhere with capacity.
           nodeSelector:
-            workload: observability
+            name: infra-pool
 
     # ------------------------------------------------------------------
     # OKE-specific: skip scrape configs that need control-plane access

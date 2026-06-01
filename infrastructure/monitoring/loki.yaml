@@ -69,7 +69,7 @@ spec:
     singleBinary:
       replicas: 1
       nodeSelector:
-        workload: observability
+        name: infra-pool
       resources:
         requests:
           cpu: 100m
