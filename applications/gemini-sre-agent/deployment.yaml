@@ -50,9 +50,9 @@ spec:
             - weight: 100
               preference:
                 matchExpressions:
-                  - key: workload
-                    operator: NotIn
-                    values: ["observability"]
+                  - key: name
+                    operator: In
+                    values: ["main-pool"]
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
