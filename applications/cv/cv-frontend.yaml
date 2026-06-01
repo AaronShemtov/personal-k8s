@@ -15,7 +15,7 @@ metadata:
   labels:
     app: cv-frontend
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: cv-frontend
@@ -29,6 +29,8 @@ spec:
       labels:
         app: cv-frontend
     spec:
+      nodeSelector:
+        name: apps-pool
       serviceAccountName: cv # carries the OCIR imagePullSecret
       affinity:
         podAntiAffinity:
