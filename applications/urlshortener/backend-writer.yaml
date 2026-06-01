@@ -31,7 +31,8 @@ spec:
         app: urlshortener
         component: writer
     spec:
-      serviceAccountName: urlshortener # for OCIR pull secret
+      nodeSelector:
+        name: apps-pool
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -42,6 +43,7 @@ spec:
                   matchLabels:
                     app: urlshortener
                     component: writer
+      serviceAccountName: urlshortener # for OCIR pull secret
       containers:
         - name: backend
           # Flux Image Automation updates the tag on every new OCIR push.

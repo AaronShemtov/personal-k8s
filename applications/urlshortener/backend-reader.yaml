@@ -30,6 +30,8 @@ spec:
         component: reader
     spec:
       serviceAccountName: urlshortener
+      nodeSelector:
+        name: apps-pool
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

@@ -29,7 +29,8 @@ spec:
       labels:
         app: pwd-frontend
     spec:
-      serviceAccountName: pwd # carries the OCIR imagePullSecret
+      nodeSelector:
+        name: apps-pool
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -39,6 +40,7 @@ spec:
                 labelSelector:
                   matchLabels:
                     app: pwd-frontend
+      serviceAccountName: pwd # carries the OCIR imagePullSecret
       containers:
         - name: nginx
           # Flux Image Automation rewrites this tag on every new OCIR push
