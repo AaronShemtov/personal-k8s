@@ -36,7 +36,7 @@ spec:
       retries: 3
   values:
     nodeSelector:
-      name: infra-pool
+      name: main-pool
 
     # Pin the Grafana image tag explicitly. The Helm chart's appVersion
     # tracks Grafana releases on its own cadence, so for predictability we
