@@ -134,14 +134,10 @@ spec:
           limits:
             memory: 128Mi
 
-        storage:
-          volumeClaimTemplate:
-            spec:
-              storageClassName: oci-bv
-              accessModes: ["ReadWriteOnce"]
-              resources:
-                requests:
-                  storage: 1Gi
+        # No persistent storage — Alertmanager runs on an emptyDir (the chart
+        # default when `storage` is unset). On a personal stand the alert
+        # history / silences are not worth a full 50 GB OCI block volume
+        # (oci-bv minimum), and they reset on pod restart, which is fine here.
 
     # ------------------------------------------------------------------
     # node-exporter — DaemonSet on every node

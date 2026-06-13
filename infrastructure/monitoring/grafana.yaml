@@ -58,13 +58,17 @@ spec:
       limits:
         memory: 256Mi
 
+    # Persistence disabled — Grafana runs on an emptyDir. This is safe here
+    # because everything stateful is provisioned from git: dashboards come
+    # from ConfigMaps via the sidecar, datasources are declared below, and
+    # admin creds come from the ESO secret. The only thing lost on a pod
+    # restart is ad-hoc UI edits, which we keep in git anyway.
+    #
+    # Why this matters: oci-bv has a 50 GB minimum block volume, so even a
+    # 2Gi PVC request would consume a full 50 GB toward the tenancy's free
+    # storage budget. emptyDir consumes zero block storage.
     persistence:
-      enabled: true
-      type: pvc
-      storageClassName: oci-bv
-      size: 2Gi
-      accessModes:
-        - ReadWriteOnce
+      enabled: false
 
     # Mount the home-dashboard ConfigMap as a file inside the Grafana pod.
     # The default_home_dashboard_path in grafana.ini reads from here.

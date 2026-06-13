@@ -54,7 +54,7 @@ spec:
               period: 24h
       # 30 days of logs. Compactor enforces retention by deleting old chunks.
       limits_config:
-        retention_period: 168h     # 7 days
+        retention_period: 168h # 7 days
         # Be lenient — we don't expect high cardinality but a misbehaving
         # Alloy could push more streams than we expect.
         max_global_streams_per_user: 10000
@@ -76,12 +76,13 @@ spec:
           memory: 256Mi
         limits:
           memory: 512Mi
+      # Persistence disabled — Loki's SingleBinary runs on an emptyDir.
+      # On a personal stand logs are short-lived and disposable; the AI SRE
+      # agent reads live pod logs directly (not from Loki), so losing Loki
+      # history on a restart costs nothing operationally. Avoids a 50 GB OCI
+      # block volume (oci-bv minimum) for a 5Gi request.
       persistence:
-        enabled: true
-        storageClass: oci-bv
-        size: 5Gi
-        accessModes:
-          - ReadWriteOnce
+        enabled: false
 
     # We don't need the gateway (it's an nginx in front of Loki for
     # auth/multi-tenant). Single binary, no auth, simple.
