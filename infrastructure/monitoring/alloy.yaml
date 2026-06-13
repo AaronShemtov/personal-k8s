@@ -35,6 +35,20 @@ spec:
         - operator: Exists
 
     alloy:
+      # Open the OTLP ports on the Alloy pod AND the Alloy Service, so apps
+      # can send traces to alloy.monitoring.svc:4317 (gRPC) / :4318 (HTTP).
+      # Without this the receiver listens inside the container but nothing
+      # routes to it from other pods.
+      extraPorts:
+        - name: otlp-grpc
+          port: 4317
+          targetPort: 4317
+          protocol: TCP
+        - name: otlp-http
+          port: 4318
+          targetPort: 4318
+          protocol: TCP
+
       resources:
         requests:
           cpu: 50m
@@ -101,6 +115,47 @@ spec:
           loki.write "default" {
             endpoint {
               url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+            }
+          }
+
+          // ==========================================================
+          // TRACES pipeline (added for Tempo).
+          // Apps send OTLP here; Alloy batches and forwards to Tempo.
+          // This is fully independent of the logs pipeline above —
+          // adding it does not affect Loki log collection.
+          // ==========================================================
+
+          // ----- Receive OTLP traces from applications -----
+          // gRPC on 4317, HTTP on 4318. Apps point their OTLP exporter at
+          // the Alloy Service (alloy.monitoring.svc) on these ports.
+          otelcol.receiver.otlp "default" {
+            grpc {
+              endpoint = "0.0.0.0:4317"
+            }
+            http {
+              endpoint = "0.0.0.0:4318"
+            }
+            output {
+              traces = [otelcol.processor.batch.default.input]
+            }
+          }
+
+          // ----- Batch spans before export (efficiency) -----
+          otelcol.processor.batch "default" {
+            output {
+              traces = [otelcol.exporter.otlp.tempo.input]
+            }
+          }
+
+          // ----- Export traces to Tempo -----
+          // Tempo's OTLP gRPC receiver is on 4317. tls.insecure because this
+          // is plain in-cluster traffic (no mTLS between Alloy and Tempo).
+          otelcol.exporter.otlp "tempo" {
+            client {
+              endpoint = "tempo.monitoring.svc.cluster.local:4317"
+              tls {
+                insecure = true
+              }
             }
           }
 
