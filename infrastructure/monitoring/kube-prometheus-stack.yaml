@@ -67,10 +67,10 @@ spec:
     prometheus:
       prometheusSpec:
         # 30-day retention — matches user requirement of one month of metrics.
-        retention: 7d
+        retention: 60d
         # Soft cap on disk usage; Prometheus will start dropping oldest blocks
         # if this is reached before the time-based retention kicks in.
-        retentionSize: "4GB"
+        retentionSize: "30GB"
 
         # Pin to the observability node.
         nodeSelector:
