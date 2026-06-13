@@ -1,0 +1,103 @@
+---
+# Tempo — distributed tracing backend (the third pillar of observability
+# alongside Prometheus metrics and Loki logs).
+#
+# Mode: single binary (chart "tempo", NOT "tempo-distributed"). For our
+# scale a microservices Tempo would be the same overkill as a microservices
+# Loki or a Mimir cluster — single binary runs ingester/querier/compactor
+# in one pod, which is exactly right here.
+#
+# Storage: local filesystem on an emptyDir. Traces are ephemeral on this
+# personal stand — they reset on pod restart, which is fine for a demo /
+# learning setup, and crucially consumes ZERO OCI Block Volume (we are
+# deliberately staying under the 200 GB tenancy budget). For real long-term
+# trace retention the path would be OCI Object Storage (S3-compatible),
+# not a PVC — but that's a later concern.
+#
+# Receives traces as OTLP, forwarded from Alloy (which the apps send to).
+#
+# NOTE: verify the chart version against the current grafana helm repo
+#   `helm search repo grafana/tempo --versions | head`
+# before committing — bump `version` below to the latest 1.x if newer.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tempo
+  namespace: monitoring
+spec:
+  interval: 30m
+  timeout: 10m
+  chart:
+    spec:
+      chart: tempo
+      version: "1.24.4"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: monitoring
+      interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    tempo:
+      # Pin the Tempo image tag explicitly for predictability, same approach
+      # as grafana.yaml. Verify the tag exists; bump deliberately.
+      repository: grafana/tempo
+      tag: "2.9.0"
+      pullPolicy: IfNotPresent
+
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 384Mi
+
+      # ----- Receivers: accept OTLP from Alloy -----
+      # We only need OTLP (gRPC + HTTP). Other protocols (jaeger, zipkin)
+      # left off — Alloy speaks OTLP, that's all we use.
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+            http:
+              endpoint: 0.0.0.0:4318
+
+      # ----- Storage: local filesystem (backed by emptyDir, see below) -----
+      storage:
+        trace:
+          backend: local
+          local:
+            path: /var/tempo/traces
+          wal:
+            path: /var/tempo/wal
+
+      # 24h retention is plenty for a demo. compactor enforces it.
+      retention: 24h
+
+    # The single-binary pod. Pin to the app pool (same nodeSelector idiom
+    # as grafana/loki), and give it an emptyDir for /var/tempo so NO block
+    # volume is consumed.
+    persistence:
+      enabled: false
+
+    # Schedule on the app pool, consistent with the rest of monitoring.
+    nodeSelector:
+      name: main-pool
+
+    # Expose a Service so Alloy can reach Tempo at a stable in-cluster DNS
+    # name (tempo.monitoring.svc:4317 for OTLP gRPC).
+    service:
+      type: ClusterIP
+
+    # We run single binary — make sure the chart doesn't try to bring up
+    # the distributed components.
+    # (chart "tempo" is single-binary by design; this block is just explicit
+    #  resource hygiene.)
+    serviceMonitor:
+      enabled: true
