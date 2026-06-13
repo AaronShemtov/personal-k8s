@@ -54,7 +54,7 @@ spec:
               period: 24h
       # 30 days of logs. Compactor enforces retention by deleting old chunks.
       limits_config:
-        retention_period: 168h # 7 days
+        retention_period: 168h     # 7 days
         # Be lenient — we don't expect high cardinality but a misbehaving
         # Alloy could push more streams than we expect.
         max_global_streams_per_user: 10000
@@ -83,6 +83,18 @@ spec:
       # block volume (oci-bv minimum) for a 5Gi request.
       persistence:
         enabled: false
+
+      # With persistence off, the chart does NOT mount anything at /var/loki,
+      # and the container rootfs is read-only — so Loki's `mkdir /var/loki`
+      # fails and it crashes. Provide a writable emptyDir at /var/loki for
+      # all of Loki's local paths (chunks, tsdb index, wal, compactor).
+      # Ephemeral by design: cleared on pod restart, consumes zero block volume.
+      extraVolumes:
+        - name: loki-data
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: loki-data
+          mountPath: /var/loki
 
     # We don't need the gateway (it's an nginx in front of Loki for
     # auth/multi-tenant). Single binary, no auth, simple.
