@@ -109,7 +109,7 @@ metadata:
     app: pwd-frontend
 spec:
   selector:
-    app: pwd-frontend
+    app: pwd-frontenda
   ports:
     - name: http
       port: 80
