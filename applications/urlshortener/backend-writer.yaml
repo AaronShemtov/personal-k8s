@@ -56,7 +56,7 @@ spec:
       containers:
         - name: backend
           # Flux Image Automation updates the tag on every new OCIR push.
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:0.0.7 # {"$imagepolicy": "flux-system:urlshortener-backend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-backend:0.0.8 # {"$imagepolicy": "flux-system:urlshortener-backend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
