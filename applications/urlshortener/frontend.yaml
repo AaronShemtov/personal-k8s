@@ -51,7 +51,7 @@ spec:
       serviceAccountName: urlshortener # for OCIR pull secret
       containers:
         - name: nginx
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-frontend:0.0.6 # {"$imagepolicy": "flux-system:urlshortener-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/urlshortener-frontend:0.0.7 # {"$imagepolicy": "flux-system:urlshortener-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
