@@ -34,7 +34,7 @@ data:
   # two models specialised for code. Adding them means teaching the LLM client the
   # Responses API — a real change, not a config line.
   MODEL_DEFAULT: "gpt-5.6-sol"
-  MODEL_ALLOWLIST: "gpt-5-mini,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,o3"
+  MODEL_ALLOWLIST: "gpt-5-mini,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,o3,gpt-5.4-nano"
   # --- Telegram -------------------------------------------------------------
   # Comma-separated numeric Telegram user IDs. Not a secret — it is an allow-list.
   # Fail-closed: if this is empty the bot refuses everyone, including you.
