@@ -72,7 +72,7 @@ data:
   PROTECTED_REPOS: "personal-k8s"
   # --- limits ---------------------------------------------------------------
   MAX_STEPS: "30"
-  MAX_TOKENS_PER_TURN: "120000"
+  MAX_TOKENS_PER_TURN: "1000000"
   LOG_LEVEL: "INFO"
 ---
 apiVersion: apps/v1
