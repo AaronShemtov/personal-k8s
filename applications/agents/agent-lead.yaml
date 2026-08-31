@@ -1,79 +1,66 @@
-# Non-secret runtime config for the ops agent.
-#
-# This ConfigMap is where the two knobs you are most likely to touch live:
-# the model, and how much the agent is allowed to do without asking.
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: agent-lead-config
   namespace: agents
 data:
+  # --- which agent this process is ------------------------------------------
   AGENT_PROFILE: "lead"
-  # --- LLM ------------------------------------------------------------------
-  # The /openai/v1 route: implicit versioning (no api-version parameter) and the
-  # Foundry *deployment name* goes in the `model` field. What is retired is the
-  # /models path (Azure AI Inference SDK), not this host.
-  #
-  # Not to be confused with the *project* endpoint shown elsewhere in the portal
-  # (.../api/projects/ai-agent-project) — that one is for the azure-ai-projects SDK.
+  AGENTS_DIR: "/app/agents"
+  # --- LLM: Azure AI Foundry -------------------------------------------------
+  # The /openai/v1/ path is mandatory. The deployment name goes in `model`.
   AZURE_OPENAI_BASE_URL: "https://ai-agent-support.services.ai.azure.com/openai/v1/"
-  # These are Foundry DEPLOYMENT names, not catalogue model ids. They happen to match
-  # here because the deployment was named after the model — keep doing that.
+  # These are deployment names in Foundry, not catalogue model ids. The three
+  # gpt-5.6 deployments are the same base model with different system prompts;
+  # /model lets the user choose per conversation.
   #
-  # Only models that answer with a tool call over /chat/completions belong here; the
-  # whole agent is useless with a model that cannot call tools. Verified 2026-08-31 by
-  # sending the same tool-calling request to every deployment in ai-agent-support:
-  #
-  #   gpt-5-mini     ok  2.2s      gpt-5.6-terra  ok  2.0s
-  #   gpt-5.6-sol    ok  2.3s      gpt-5.6-luna   ok  2.0s
-  #   o3             ok  2.6s
-  #
-  # Deliberately absent: gpt-5.1-codex-max and gpt-5.3-codex. Both return HTTP 400
-  # "The requested operation is unsupported" on /chat/completions and work only via
-  # /responses, which agentcore.llm.azure does not speak yet. Ironically those are the
-  # two models specialised for code. Adding them means teaching the LLM client the
-  # Responses API — a real change, not a config line.
+  # gpt-5.2-codex and gpt-5.3-codex exist in the resource but are intentionally
+  # absent: they only expose /responses, which agentcore.llm.azure does not speak yet.
+  # Ironically those are the two models specialised for code. Adding them means
+  # teaching the LLM client the Responses API — a real change, not a config line.
   MODEL_DEFAULT: "gpt-5.6-sol"
   MODEL_ALLOWLIST: "gpt-5-mini,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,o3,gpt-5.4-nano"
   # --- Telegram -------------------------------------------------------------
   # Comma-separated numeric Telegram user IDs. Not a secret — it is an allow-list.
   # Fail-closed: if this is empty the bot refuses everyone, including you.
-  # Get your ID by messaging @userinfobot.
   TELEGRAM_ALLOWED_USERS: "139236889"
-  # --- MCP servers ----------------------------------------------------------
-  # Our own servers mount the MCP endpoint at /mcp. The official GitHub server serves
-  # it at the root, with /readonly and /x/<toolset> variants alongside.
+  # --- MCP servers -----------------------------------------------------------
   MCP_GITHUB_URL: "http://mcp-github.agents.svc.cluster.local:8082/"
   MCP_CLOUDFLARE_URL: "http://mcp-cloudflare.agents.svc.cluster.local:8080/mcp"
   MCP_CLUSTER_URL: "http://mcp-cluster.agents.svc.cluster.local:8080/mcp"
-  # --- how much autonomy ----------------------------------------------------
-  # Uncomment ONE line per setting; the active value is the uncommented one.
-  #
-  # direct-push   — the agent commits and pushes on its own, no approval
-  # pull-request  — it may write, but only to a branch, and must open a PR
-  # read-only     — no writes at all
+  # --- policy ---------------------------------------------------------------
   GITHUB_WRITE_MODE: "direct-push"
-  # GITHUB_WRITE_MODE: "pull-request"
-  # GITHUB_WRITE_MODE: "read-only"
-
-  # approve   — every Cloudflare change waits for a Telegram button press
-  # auto      — no confirmation
-  # read-only — no changes at all
-  #
-  # Starts at `approve` for a reason: a bad commit is revertible, a deleted DNS
-  # record takes 1ms.my offline until someone notices.
   CLOUDFLARE_WRITE_MODE: "approve"
-  # CLOUDFLARE_WRITE_MODE: "auto"
-  # CLOUDFLARE_WRITE_MODE: "read-only"
-
-  # Never pushed to directly, whatever GITHUB_WRITE_MODE says. A broken manifest
-  # committed here reaches the live cluster in about a minute via Flux, so this
-  # repository is only ever changed through a pull request.
   PROTECTED_REPOS: "personal-k8s"
   # --- limits ---------------------------------------------------------------
   MAX_STEPS: "30"
-  MAX_TOKENS_PER_TURN: "1000000"
+  MAX_TOKENS_PER_TURN: "120000"
   LOG_LEVEL: "INFO"
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: agent-lead-secrets
+  namespace: agents
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault
+    kind: ClusterSecretStore
+  target:
+    name: agent-lead-secrets
+    creationPolicy: Owner
+  data:
+    - secretKey: AZURE_OPENAI_API_KEY
+      remoteRef:
+        key: azure-foundry-api-key
+    - secretKey: TELEGRAM_BOT_TOKEN
+      remoteRef:
+        key: agent-lead-telegram-token
+    - secretKey: GITHUB_PAT
+      remoteRef:
+        key: agent-lead-github-pat
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -81,37 +68,32 @@ metadata:
   name: agent-lead
   namespace: agents
   labels:
-    app: agent-lead
+    app.kubernetes.io/name: agent-lead
+    app.kubernetes.io/component: agent
 spec:
   replicas: 1
-  # Long-polling Telegram allows only ONE consumer per bot token. Two replicas would
-  # fight over getUpdates and throw 409 Conflict. Keep it at 1; Recreate so a rollout
-  # never briefly runs two pods.
+  # One bot token must have exactly one Telegram poller. Recreate avoids a brief
+  # overlap during rollout that would make both pods receive 409 Conflict.
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: agent-lead
+      app.kubernetes.io/name: agent-lead
   template:
     metadata:
       labels:
-        app: agent-lead
+        app.kubernetes.io/name: agent-lead
+        app.kubernetes.io/component: agent
     spec:
       serviceAccountName: agent-lead
       imagePullSecrets:
         - name: ocir-pull-secret
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: name
-                    operator: In
-                    values: ["main-pool"]
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -121,50 +103,37 @@ spec:
           # One image, three roles. This is the agent; the MCP servers run the same
           # image with a different command.
           command: ["python", "-m", "agentcore"]
-          ports:
-            - name: health
-              containerPort: 8080
           envFrom:
             - configMapRef:
                 name: agent-lead-config
-          env:
-            - name: TELEGRAM_BOT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: agent-lead-telegram-bot-token
-                  key: token
-            - name: AZURE_OPENAI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: agents-azure-openai-api-key
-                  key: api_key
-            # Sent as a per-request bearer to mcp-github, which has no token setting
-            # of its own in http mode.
-            - name: GITHUB_PAT
-              valueFrom:
-                secretKeyRef:
-                  name: agents-github-personal-access-token
-                  key: pat
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              memory: 512Mi
+            - secretRef:
+                name: agent-lead-secrets
+          ports:
+            - name: health
+              containerPort: 8080
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8080
-            initialDelaySeconds: 20
-            periodSeconds: 30
-          # Unlike the SRE agent's always-200 probe, this one asks the Telegram
-          # Updater whether it is actually polling, so a wedged poller gets restarted.
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8080
+              port: health
             initialDelaySeconds: 10
-            periodSeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -176,3 +145,19 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-lead
+  namespace: agents
+  labels:
+    app.kubernetes.io/name: agent-lead
+spec:
+  selector:
+    app.kubernetes.io/name: agent-lead
+  ports:
+    - name: health
+      port: 8080
+      targetPort: health
+      protocol: TCP
