@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,7 +37,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nginx
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/myip-frontend:0.0.3 # {"$imagepolicy": "flux-system:myip-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/myip-frontend:0.0.4 # {"$imagepolicy": "flux-system:myip-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
