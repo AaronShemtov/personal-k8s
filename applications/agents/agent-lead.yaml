@@ -9,7 +9,6 @@ metadata:
   namespace: agents
 data:
   AGENT_PROFILE: "lead"
-
   # --- LLM ------------------------------------------------------------------
   # The /openai/v1 route: implicit versioning (no api-version parameter) and the
   # Foundry *deployment name* goes in the `model` field. What is retired is the
@@ -18,7 +17,6 @@ data:
   # Not to be confused with the *project* endpoint shown elsewhere in the portal
   # (.../api/projects/ai-agent-project) — that one is for the azure-ai-projects SDK.
   AZURE_OPENAI_BASE_URL: "https://ai-agent-support.services.ai.azure.com/openai/v1/"
-
   # These are Foundry DEPLOYMENT names, not catalogue model ids. They happen to match
   # here because the deployment was named after the model — keep doing that.
   #
@@ -27,20 +25,17 @@ data:
   # to. Add the heavier model here for code generation and keep mini for chat.
   MODEL_DEFAULT: "gpt-5-mini"
   MODEL_ALLOWLIST: "gpt-5-mini"
-
   # --- Telegram -------------------------------------------------------------
   # Comma-separated numeric Telegram user IDs. Not a secret — it is an allow-list.
   # Fail-closed: if this is empty the bot refuses everyone, including you.
   # Get your ID by messaging @userinfobot.
   TELEGRAM_ALLOWED_USERS: "139236889"
-
   # --- MCP servers ----------------------------------------------------------
   # Our own servers mount the MCP endpoint at /mcp. The official GitHub server serves
   # it at the root, with /readonly and /x/<toolset> variants alongside.
   MCP_GITHUB_URL: "http://mcp-github.agents.svc.cluster.local:8082/"
   MCP_CLOUDFLARE_URL: "http://mcp-cloudflare.agents.svc.cluster.local:8080/mcp"
   MCP_CLUSTER_URL: "http://mcp-cluster.agents.svc.cluster.local:8080/mcp"
-
   # --- how much autonomy ----------------------------------------------------
   # Uncomment ONE line per setting; the active value is the uncommented one.
   #
@@ -65,7 +60,6 @@ data:
   # committed here reaches the live cluster in about a minute via Flux, so this
   # repository is only ever changed through a pull request.
   PROTECTED_REPOS: "personal-k8s"
-
   # --- limits ---------------------------------------------------------------
   MAX_STEPS: "30"
   MAX_TOKENS_PER_TURN: "120000"
@@ -112,7 +106,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: agent
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.2 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.3 # {"$imagepolicy": "flux-system:ai-agents-platform"}
           imagePullPolicy: IfNotPresent
           # One image, three roles. This is the agent; the MCP servers run the same
           # image with a different command.

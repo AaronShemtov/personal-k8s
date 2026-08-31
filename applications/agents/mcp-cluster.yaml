@@ -1,4 +1,3 @@
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -54,7 +53,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: mcp-cluster
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.2 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.3 # {"$imagepolicy": "flux-system:ai-agents-platform"}
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "mcp_cluster"]
           ports:
