@@ -90,12 +90,18 @@ spec:
             periodSeconds: 30
           # Readiness verifies the token against Cloudflare, so an expired or
           # wrongly-scoped token surfaces as NotReady instead of as tool failures.
+          #
+          # timeoutSeconds is set explicitly: the default is 1s, and this probe makes a
+          # real HTTPS call to api.cloudflare.com while the client itself allows 30s.
+          # At 1s a single slow round trip counts as a failure, and three in a row pull
+          # the pod out of the Service for no good reason.
           readinessProbe:
             httpGet:
               path: /readyz
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 30
+            timeoutSeconds: 10
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

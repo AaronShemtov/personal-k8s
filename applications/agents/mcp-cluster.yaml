@@ -76,12 +76,17 @@ spec:
             periodSeconds: 30
           # Readiness actually calls the apiserver, so RBAC problems show up as
           # NotReady rather than as confusing tool errors in the chat.
+          #
+          # timeoutSeconds must exceed the 5s the client allows for that call
+          # (mcp_cluster.tools.readiness), otherwise the probe gives up first and the
+          # pod flaps while the code is still waiting for an answer.
           readinessProbe:
             httpGet:
               path: /readyz
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 20
+            timeoutSeconds: 6
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
