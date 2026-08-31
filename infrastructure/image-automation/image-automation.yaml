@@ -181,6 +181,30 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
+# myip.1ms.my — public IP checker.
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: myip-frontend
+  namespace: flux-system
+spec:
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/myip-frontend
+  interval: 2m
+  secretRef:
+    name: ocir-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: myip-frontend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: myip-frontend
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
 # Reuses the flux-system GitRepository (SSH deploy key with write access),
 # so the same credentials Flux uses to PULL manifests also let it PUSH
 # tag-bump commits.

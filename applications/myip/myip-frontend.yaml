@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myip-frontend
+  namespace: myip
+  labels:
+    app: myip-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myip-frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: myip-frontend
+    spec:
+      serviceAccountName: myip
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: myip-frontend
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/myip-frontend:0.0.5 # {"$imagepolicy": "flux-system:myip-frontend"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+            - name: nginx-tmp
+              mountPath: /tmp
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: nginx-tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myip-frontend
+  namespace: myip
+  labels:
+    app: myip-frontend
+spec:
+  selector:
+    app: myip-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
