@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nginx
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/myip-frontend:0.0.2 # {"$imagepolicy": "flux-system:myip-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/myip-frontend:0.0.3 # {"$imagepolicy": "flux-system:myip-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
