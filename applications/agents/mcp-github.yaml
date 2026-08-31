@@ -69,7 +69,7 @@ spec:
             - "--toolsets"
             - "repos,issues,pull_requests,git,context"
           # --- to make the agent read-only on GitHub: uncomment this block, comment
-          # --- out the one above, and commit. Flux applies it within ~10 minutes.
+          # --- out the one above, and commit. Flux applies it within about a minute.
           # args:
           #   - "http"
           #   - "--read-only"

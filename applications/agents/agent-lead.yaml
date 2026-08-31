@@ -62,7 +62,7 @@ data:
   # CLOUDFLARE_WRITE_MODE: "read-only"
 
   # Never pushed to directly, whatever GITHUB_WRITE_MODE says. A broken manifest
-  # committed here reaches the live cluster within ~10 minutes via Flux, so this
+  # committed here reaches the live cluster in about a minute via Flux, so this
   # repository is only ever changed through a pull request.
   PROTECTED_REPOS: "personal-k8s"
 
