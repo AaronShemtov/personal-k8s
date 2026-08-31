@@ -1,13 +1,5 @@
 ---
-# Image Automation pipeline for all sites.
-#
-# Each tracked OCIR repo gets:
-#   - ImageRepository — Flux scans the registry every 2 minutes
-#   - ImagePolicy     — picks the highest tag matching semver `>=0.0.0`
-#
-# A single ImageUpdateAutomation at the bottom watches every Deployment YAML
-# under ./applications (any namespace, any subfolder) for the marker
-# `# {"$imagepolicy": "flux-system:<policy-name>"}` and bumps the tag.
+# Flux scans OCIR semver tags and updates marked images under applications/.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -54,7 +46,6 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# cv.1ms.my — static CV site.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -78,7 +69,6 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# infra.1ms.my — architecture walkthrough static site.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -102,7 +92,6 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# pwd.1ms.my — password generator static site.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -126,8 +115,6 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# agent.1ms.my (future) — AI SRE agent.
-# Image tag scheme matches the others: 0.0.<run_number> from GitHub Actions.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -151,13 +138,6 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# AI agent platform (repo: ai-agents-platform).
-#
-# ONE image serves four Deployments in the agents namespace — the agent itself plus
-# mcp-cloudflare and mcp-cluster, which differ only by their `command:`. They share a
-# dependency set, so one image means one policy here instead of three. (mcp-github is
-# GitHub's own image from ghcr.io and is deliberately NOT automated: its tag is bumped
-# by hand, since a third party's release should not roll into the cluster unreviewed.)
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -181,17 +161,30 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# Reuses the flux-system GitRepository (SSH deploy key with write access),
-# so the same credentials Flux uses to PULL manifests also let it PUSH
-# tag-bump commits.
-#
-# Path is the whole ./applications tree — covers urlshortener/, cv/, pwd/,
-# infra/ and gemini-sre-agent/. The automation only edits files containing
-# the marker comment, so subfolders without markers are ignored.
-#
-# The agent's Deployment lives under ./applications/gemini-sre-agent/ with the
-# marker `# {"$imagepolicy": "flux-system:gemini-sre-agent"}`, so its tag is
-# bumped automatically on every new OCIR build, exactly like the frontends.
+# myip.1ms.my — public IP checker.
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: myip-frontend
+  namespace: flux-system
+spec:
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/myip-frontend
+  interval: 2m
+  secretRef:
+    name: ocir-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: myip-frontend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: myip-frontend
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageUpdateAutomation
 metadata:
