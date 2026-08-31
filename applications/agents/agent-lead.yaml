@@ -20,11 +20,21 @@ data:
   # These are Foundry DEPLOYMENT names, not catalogue model ids. They happen to match
   # here because the deployment was named after the model — keep doing that.
   #
-  # TODO: revisit once a second model is deployed. Right now gpt-5-mini is the only
-  # chat deployment in the ai-agent-support resource, so /model has nothing to switch
-  # to. Add the heavier model here for code generation and keep mini for chat.
+  # Only models that answer with a tool call over /chat/completions belong here; the
+  # whole agent is useless with a model that cannot call tools. Verified 2026-08-31 by
+  # sending the same tool-calling request to every deployment in ai-agent-support:
+  #
+  #   gpt-5-mini     ok  2.2s      gpt-5.6-terra  ok  2.0s
+  #   gpt-5.6-sol    ok  2.3s      gpt-5.6-luna   ok  2.0s
+  #   o3             ok  2.6s
+  #
+  # Deliberately absent: gpt-5.1-codex-max and gpt-5.3-codex. Both return HTTP 400
+  # "The requested operation is unsupported" on /chat/completions and work only via
+  # /responses, which agentcore.llm.azure does not speak yet. Ironically those are the
+  # two models specialised for code. Adding them means teaching the LLM client the
+  # Responses API — a real change, not a config line.
   MODEL_DEFAULT: "gpt-5-mini"
-  MODEL_ALLOWLIST: "gpt-5-mini"
+  MODEL_ALLOWLIST: "gpt-5-mini,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,o3"
   # --- Telegram -------------------------------------------------------------
   # Comma-separated numeric Telegram user IDs. Not a secret — it is an allow-list.
   # Fail-closed: if this is empty the bot refuses everyone, including you.
