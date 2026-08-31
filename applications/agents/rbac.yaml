@@ -1,0 +1,95 @@
+---
+# ServiceAccount for the agent itself.
+#
+# It has NO ClusterRole and NO RoleBinding, and that is the point: the agent process
+# holds the LLM key and the GitHub PAT, so it must not also be able to read the
+# cluster. Cluster reads go through mcp-cluster, which holds no other credentials.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-lead
+  namespace: agents
+imagePullSecrets:
+  - name: ocir-pull-secret
+---
+# ServiceAccount for mcp-cloudflare. Talks only to api.cloudflare.com; needs no
+# Kubernetes permissions whatsoever.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-cloudflare
+  namespace: agents
+imagePullSecrets:
+  - name: ocir-pull-secret
+---
+# ServiceAccount for the read-only cluster MCP server. This is the only identity in
+# the namespace with any Kubernetes permissions at all.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-cluster
+  namespace: agents
+imagePullSecrets:
+  - name: ocir-pull-secret
+---
+# Read-only cluster access, mirroring what applications/gemini-sre-agent/rbac.yaml
+# grants minus every write verb.
+#
+# Explicitly absent, and intentionally so:
+#   - secrets           (the agent must never be able to read credentials)
+#   - pods/exec, pods/attach, pods/portforward
+#   - any create/update/patch/delete
+#   - any wildcard resource or verb
+#
+# Cluster CHANGES do not happen here. They happen as a pull request against the
+# personal-k8s repository, which Flux then reconciles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mcp-cluster-read
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - events
+      - services
+      - endpoints
+      - namespaces
+      - nodes
+      - configmaps
+      - persistentvolumeclaims
+      - replicationcontrollers
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes", "gateways"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcp-cluster-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mcp-cluster-read
+subjects:
+  - kind: ServiceAccount
+    name: mcp-cluster
+    namespace: agents

@@ -151,6 +151,36 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
+# AI agent platform (repo: ai-agents-platform).
+#
+# ONE image serves four Deployments in the agents namespace — the agent itself plus
+# mcp-cloudflare and mcp-cluster, which differ only by their `command:`. They share a
+# dependency set, so one image means one policy here instead of three. (mcp-github is
+# GitHub's own image from ghcr.io and is deliberately NOT automated: its tag is bumped
+# by hand, since a third party's release should not roll into the cluster unreviewed.)
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: ai-agents-platform
+  namespace: flux-system
+spec:
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform
+  interval: 2m
+  secretRef:
+    name: ocir-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: ai-agents-platform
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ai-agents-platform
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
 # Reuses the flux-system GitRepository (SSH deploy key with write access),
 # so the same credentials Flux uses to PULL manifests also let it PUSH
 # tag-bump commits.

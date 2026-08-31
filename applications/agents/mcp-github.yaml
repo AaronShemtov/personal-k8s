@@ -1,0 +1,107 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-github
+  namespace: agents
+spec:
+  selector:
+    app: mcp-github
+  ports:
+    - name: mcp
+      port: 8082
+      targetPort: 8082
+---
+# GitHub's own MCP server, run by us rather than called at api.githubcopilot.com.
+#
+# Why self-host something GitHub already hosts: the `--toolsets` and `--read-only`
+# flags below live in git and are enforced server-side, so the model cannot reach past
+# them. Against the hosted endpoint the same limits would be request headers sent by
+# the agent — that is, inside the perimeter we are trying to constrain.
+#
+# NOT built by us: the image is GitHub's, pulled straight from the public ghcr.io, so
+# no imagePullSecret and no $imagepolicy marker — the tag is bumped deliberately.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-github
+  namespace: agents
+  labels:
+    app: mcp-github
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-github
+  template:
+    metadata:
+      labels:
+        app: mcp-github
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: name
+                    operator: In
+                    values: ["main-pool"]
+      # The image is distroless but its config declares User "0" — there is no USER
+      # directive in GitHub's Dockerfile. Under PodSecurity `restricted` the pod will
+      # not start unless we pin a non-root uid ourselves. 65532 is the distroless
+      # `nonroot` user.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp-github
+          image: ghcr.io/github/github-mcp-server:v1.11.0
+          imagePullPolicy: IfNotPresent
+          # `http` serves Streamable HTTP (there is no SSE mode). Port 8082 is its
+          # default. The toolset list is the server-side ceiling on what any agent
+          # talking to this pod can do.
+          args:
+            - "http"
+            - "--toolsets"
+            - "repos,issues,pull_requests,git,context"
+          # --- to make the agent read-only on GitHub: uncomment this block, comment
+          # --- out the one above, and commit. Flux applies it within ~10 minutes.
+          # args:
+          #   - "http"
+          #   - "--read-only"
+          #   - "--toolsets"
+          #   - "repos,issues,pull_requests,git,context"
+          ports:
+            - name: mcp
+              containerPort: 8082
+          # No credential here on purpose: in http mode this server takes
+          # `Authorization: Bearer <PAT>` from each request, so the PAT lives in the
+          # agent pod and this one holds nothing worth stealing.
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          # A TCP probe rather than httpGet: the server answers MCP on /, and an
+          # unauthenticated GET there returns 401, which an httpGet probe would read
+          # as failure. Liveness only needs to know the listener is up.
+          livenessProbe:
+            tcpSocket:
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

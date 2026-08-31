@@ -1,0 +1,19 @@
+---
+# Namespace for the AI agent platform (repo: ai-agents-platform).
+#
+# Four pods live here: the agent itself plus three MCP servers. They are separate
+# Deployments on purpose — that is where the security boundary sits, not in the
+# repository layout. mcp-cluster holds the only cluster credentials; mcp-cloudflare
+# holds the only Cloudflare token; the agent holds the LLM key and the GitHub PAT and
+# has no ClusterRole at all.
+#
+# PodSecurity = restricted, same as every other application namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agents
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+    kubernetes.io/metadata.name: agents

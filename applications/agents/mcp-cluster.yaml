@@ -1,0 +1,96 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-cluster
+  namespace: agents
+spec:
+  selector:
+    app: mcp-cluster
+  ports:
+    - name: mcp
+      port: 8080
+      targetPort: 8080
+---
+# Read-only Kubernetes MCP server.
+#
+# This pod is the only thing in the namespace with cluster credentials, and its
+# ClusterRole has no write verb in it (see rbac.yaml). It holds no LLM key, no GitHub
+# PAT and no Cloudflare token — so compromising the agent does not hand over the
+# cluster, and compromising this does not hand over anything else.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-cluster
+  namespace: agents
+  labels:
+    app: mcp-cluster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-cluster
+  template:
+    metadata:
+      labels:
+        app: mcp-cluster
+    spec:
+      serviceAccountName: mcp-cluster
+      imagePullSecrets:
+        - name: ocir-pull-secret
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: name
+                    operator: In
+                    values: ["main-pool"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp-cluster
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.2 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "mcp_cluster"]
+          ports:
+            - name: mcp
+              containerPort: 8080
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 192Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          # Readiness actually calls the apiserver, so RBAC problems show up as
+          # NotReady rather than as confusing tool errors in the chat.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

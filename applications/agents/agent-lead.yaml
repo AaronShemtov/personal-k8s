@@ -1,0 +1,174 @@
+# Non-secret runtime config for the ops agent.
+#
+# This ConfigMap is where the two knobs you are most likely to touch live:
+# the model, and how much the agent is allowed to do without asking.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-lead-config
+  namespace: agents
+data:
+  AGENT_PROFILE: "lead"
+
+  # --- LLM ------------------------------------------------------------------
+  # The /openai/v1 route: implicit versioning (no api-version parameter) and the
+  # Foundry *deployment name* goes in the `model` field. What is retired is the
+  # /models path (Azure AI Inference SDK), not this host.
+  #
+  # Not to be confused with the *project* endpoint shown elsewhere in the portal
+  # (.../api/projects/ai-agent-project) — that one is for the azure-ai-projects SDK.
+  AZURE_OPENAI_BASE_URL: "https://ai-agent-support.services.ai.azure.com/openai/v1/"
+
+  # These are Foundry DEPLOYMENT names, not catalogue model ids. They happen to match
+  # here because the deployment was named after the model — keep doing that.
+  #
+  # TODO: revisit once a second model is deployed. Right now gpt-5-mini is the only
+  # chat deployment in the ai-agent-support resource, so /model has nothing to switch
+  # to. Add the heavier model here for code generation and keep mini for chat.
+  MODEL_DEFAULT: "gpt-5-mini"
+  MODEL_ALLOWLIST: "gpt-5-mini"
+
+  # --- Telegram -------------------------------------------------------------
+  # Comma-separated numeric Telegram user IDs. Not a secret — it is an allow-list.
+  # Fail-closed: if this is empty the bot refuses everyone, including you.
+  # Get your ID by messaging @userinfobot.
+  TELEGRAM_ALLOWED_USERS: "139236889"
+
+  # --- MCP servers ----------------------------------------------------------
+  # Our own servers mount the MCP endpoint at /mcp. The official GitHub server serves
+  # it at the root, with /readonly and /x/<toolset> variants alongside.
+  MCP_GITHUB_URL: "http://mcp-github.agents.svc.cluster.local:8082/"
+  MCP_CLOUDFLARE_URL: "http://mcp-cloudflare.agents.svc.cluster.local:8080/mcp"
+  MCP_CLUSTER_URL: "http://mcp-cluster.agents.svc.cluster.local:8080/mcp"
+
+  # --- how much autonomy ----------------------------------------------------
+  # Uncomment ONE line per setting; the active value is the uncommented one.
+  #
+  # direct-push   — the agent commits and pushes on its own, no approval
+  # pull-request  — it may write, but only to a branch, and must open a PR
+  # read-only     — no writes at all
+  GITHUB_WRITE_MODE: "direct-push"
+  # GITHUB_WRITE_MODE: "pull-request"
+  # GITHUB_WRITE_MODE: "read-only"
+
+  # approve   — every Cloudflare change waits for a Telegram button press
+  # auto      — no confirmation
+  # read-only — no changes at all
+  #
+  # Starts at `approve` for a reason: a bad commit is revertible, a deleted DNS
+  # record takes 1ms.my offline until someone notices.
+  CLOUDFLARE_WRITE_MODE: "approve"
+  # CLOUDFLARE_WRITE_MODE: "auto"
+  # CLOUDFLARE_WRITE_MODE: "read-only"
+
+  # Never pushed to directly, whatever GITHUB_WRITE_MODE says. A broken manifest
+  # committed here reaches the live cluster within ~10 minutes via Flux, so this
+  # repository is only ever changed through a pull request.
+  PROTECTED_REPOS: "personal-k8s"
+
+  # --- limits ---------------------------------------------------------------
+  MAX_STEPS: "30"
+  MAX_TOKENS_PER_TURN: "120000"
+  LOG_LEVEL: "INFO"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-lead
+  namespace: agents
+  labels:
+    app: agent-lead
+spec:
+  replicas: 1
+  # Long-polling Telegram allows only ONE consumer per bot token. Two replicas would
+  # fight over getUpdates and throw 409 Conflict. Keep it at 1; Recreate so a rollout
+  # never briefly runs two pods.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: agent-lead
+  template:
+    metadata:
+      labels:
+        app: agent-lead
+    spec:
+      serviceAccountName: agent-lead
+      imagePullSecrets:
+        - name: ocir-pull-secret
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: name
+                    operator: In
+                    values: ["main-pool"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.2 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          imagePullPolicy: IfNotPresent
+          # One image, three roles. This is the agent; the MCP servers run the same
+          # image with a different command.
+          command: ["python", "-m", "agentcore"]
+          ports:
+            - name: health
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: agent-lead-config
+          env:
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agent-lead-telegram-bot-token
+                  key: token
+            - name: AZURE_OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agents-azure-openai-api-key
+                  key: api_key
+            # Sent as a per-request bearer to mcp-github, which has no token setting
+            # of its own in http mode.
+            - name: GITHUB_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: agents-github-personal-access-token
+                  key: pat
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          # Unlike the SRE agent's always-200 probe, this one asks the Telegram
+          # Updater whether it is actually polling, so a wedged poller gets restarted.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
