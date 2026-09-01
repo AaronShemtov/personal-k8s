@@ -28,7 +28,6 @@ data:
   # resource does not exist") — do not add it back.
   MODEL_DEFAULT: "gpt-5.6-sol"
   MODEL_ALLOWLIST: "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max"
-
   # Deployments that answer only on /responses. Measured: both reject /chat/completions
   # with HTTP 400 "The requested operation is unsupported" and return a proper
   # function_call on /responses. Microsoft and OpenAI both document this as a property
@@ -121,7 +120,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: agent
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.15 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.16 # {"$imagepolicy": "flux-system:ai-agents-platform"}
           imagePullPolicy: IfNotPresent
           # One image, three roles. This is the agent; the MCP servers run the same
           # image with a different command.
