@@ -45,6 +45,11 @@ data:
   MCP_GITHUB_URL: "http://mcp-github.agents.svc.cluster.local:8082/"
   MCP_CLOUDFLARE_URL: "http://mcp-cloudflare.agents.svc.cluster.local:8080/mcp"
   MCP_CLUSTER_URL: "http://mcp-cluster.agents.svc.cluster.local:8080/mcp"
+  # The coder agent, reachable as one more MCP server. Its tool arrives as coder__ask
+  # and is checked by policy and written to the audit log like any other call. The
+  # client gives this server a much longer read timeout than the rest, because a
+  # delegated agent runs a whole tool loop of its own before it answers.
+  MCP_CODER_URL: "http://agent-coder.agents.svc.cluster.local:8080/mcp"
   # --- policy ---------------------------------------------------------------
   GITHUB_WRITE_MODE: "direct-push"
   CLOUDFLARE_WRITE_MODE: "approve"

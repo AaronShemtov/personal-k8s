@@ -1,0 +1,170 @@
+---
+# The coder agent. Same image and same loop as agent-lead, but with an MCP tool in front
+# of it instead of a Telegram bot: `python -m mcp_agent` rather than `python -m agentcore`.
+#
+# It has no bot and no Telegram token, and that is not an omission. A bot never receives
+# another bot's messages — Telegram drops them to stop two bots looping on each other —
+# so delegation cannot travel through the chat however many bots exist. It goes over the
+# cluster network instead, and arrives at the lead as one more tool: coder__ask, subject
+# to the same policy checks and the same audit log as github__create_pull_request.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-coder-config
+  namespace: agents
+data:
+  AGENT_PROFILE: "coder"
+
+  AZURE_OPENAI_BASE_URL: "https://ai-agent-support.services.ai.azure.com/openai/v1/"
+
+  # The profile pins gpt-5.3-codex, so MODEL_DEFAULT is only a fallback. It has to be a
+  # model that exists, and it has to be listed in MODELS_RESPONSES_API if it is one of
+  # the codex pair — that list is how the client decides which endpoint to call.
+  MODEL_DEFAULT: "gpt-5.3-codex"
+  MODEL_ALLOWLIST: "gpt-5.3-codex,gpt-5.1-codex-max,gpt-5.6-sol"
+  MODELS_RESPONSES_API: "gpt-5.3-codex,gpt-5.1-codex-max"
+
+  # No MCP_CLOUDFLARE_URL on purpose: Cloudflare's write mode is `approve`, and there is
+  # nobody here to press the button, so every mutating call would be refused anyway. DNS
+  # and tunnels stay with the agent that can ask.
+  MCP_GITHUB_URL: "http://mcp-github.agents.svc.cluster.local:8082/"
+  MCP_CLUSTER_URL: "http://mcp-cluster.agents.svc.cluster.local:8080/mcp"
+
+  GITHUB_WRITE_MODE: "direct-push"
+  PROTECTED_REPOS: "personal-k8s"
+
+  # More steps than the lead: writing a service end to end is genuinely more calls than
+  # answering a question. The spend ceiling is what actually bounds a runaway turn.
+  MAX_STEPS: "40"
+  MAX_TOKENS_PER_TURN: "120000"
+  MAX_BILLABLE_TOKENS_PER_TURN: "300000"
+  LOG_LEVEL: "INFO"
+---
+# Azure and GitHub only. No Telegram token — this agent has no chat to answer in.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: agent-coder-secrets
+  namespace: agents
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault
+    kind: ClusterSecretStore
+  target:
+    name: agent-coder-secrets
+    creationPolicy: Owner
+  # remoteRef.key is the OCI Vault secret NAME and is not guessable — check it against
+  # the other ExternalSecrets in this directory before changing one. Inventing these is
+  # how agent-lead ended up in CreateContainerConfigError for 49 restarts.
+  data:
+    - secretKey: AZURE_OPENAI_API_KEY
+      remoteRef:
+        key: agents-azure-openai-api-key
+    - secretKey: GITHUB_PAT
+      remoteRef:
+        key: agents-github-personal-access-token
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-coder
+  namespace: agents
+imagePullSecrets:
+  - name: ocir-pull-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-coder
+  namespace: agents
+  labels:
+    app: agent-coder
+spec:
+  selector:
+    app: agent-coder
+  ports:
+    - name: mcp
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-coder
+  namespace: agents
+  labels:
+    app: agent-coder
+spec:
+  replicas: 1
+  # spec.selector is IMMUTABLE. Renaming these labels on a live Deployment makes every
+  # apply fail, and because Flux applies ./applications as one Kustomization that
+  # failure freezes every other app in the tree. Match the convention already in use
+  # here rather than "improving" it later.
+  selector:
+    matchLabels:
+      app: agent-coder
+  template:
+    metadata:
+      labels:
+        app: agent-coder
+    spec:
+      serviceAccountName: agent-coder
+      imagePullSecrets:
+        - name: ocir-pull-secret
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: name
+                    operator: In
+                    values: ["main-pool"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.18 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "mcp_agent"]
+          ports:
+            - name: mcp
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: agent-coder-config
+            - secretRef:
+                name: agent-coder-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
