@@ -10,16 +10,34 @@ data:
   # --- LLM: Azure AI Foundry -------------------------------------------------
   # The /openai/v1/ path is mandatory. The deployment name goes in `model`.
   AZURE_OPENAI_BASE_URL: "https://ai-agent-support.services.ai.azure.com/openai/v1/"
-  # These are deployment names in Foundry, not catalogue model ids. The three
-  # gpt-5.6 deployments are the same base model with different system prompts;
-  # /model lets the user choose per conversation.
+  # Deployment names in Foundry, not catalogue model ids. Note /openai/v1/models lists
+  # the whole Foundry catalogue rather than what is deployed here, so it cannot be used
+  # to check this list — every entry below was verified by actually calling it.
   #
-  # gpt-5.2-codex and gpt-5.3-codex exist in the resource but are intentionally
-  # absent: they only expose /responses, which agentcore.llm.azure does not speak yet.
-  # Ironically those are the two models specialised for code. Adding them means
-  # teaching the LLM client the Responses API — a real change, not a config line.
+  # sol / terra / luna are three capability tiers of one family, not one model with
+  # different prompts: Intelligence Index 59 / 55 / 51 over a 25x price range
+  # ($5.00 / $2.00 / $0.20 per 1M input). The coding gap is much narrower than the
+  # price gap — Coding Agent Index 80 / 77 / 75 — so luna is the value pick for a role
+  # that fires on every message, and sol is worth it for one that runs rarely.
+  #
+  # gpt-5-mini was dropped: its knowledge cutoff is May 2024, and it showed — asked for
+  # a Dockerfile with readOnlyRootFilesystem it missed the temp-path redirection that
+  # requirement is all about, while both gpt-5.6-sol and gpt-5.3-codex handled it.
+  #
+  # gpt-5.2-codex does NOT exist on this resource (404, "The API deployment for this
+  # resource does not exist") — do not add it back.
   MODEL_DEFAULT: "gpt-5.6-sol"
-  MODEL_ALLOWLIST: "gpt-5-mini,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano"
+  MODEL_ALLOWLIST: "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max"
+
+  # Deployments that answer only on /responses. Measured: both reject /chat/completions
+  # with HTTP 400 "The requested operation is unsupported" and return a proper
+  # function_call on /responses. Microsoft and OpenAI both document this as a property
+  # of the codex family across four generations, so it is not a gap that will close.
+  #
+  # These are the models built for code, and it shows: on the same Dockerfile task
+  # gpt-5.3-codex answered in 4.0s against 31.8s for gpt-5.6-sol, got the read-only
+  # root filesystem right, and volunteered a /healthz endpoint nobody asked for.
+  MODELS_RESPONSES_API: "gpt-5.3-codex,gpt-5.1-codex-max"
   # --- Telegram -------------------------------------------------------------
   # Comma-separated numeric Telegram user IDs. Not a secret — it is an allow-list.
   # Fail-closed: if this is empty the bot refuses everyone, including you.
@@ -34,7 +52,13 @@ data:
   PROTECTED_REPOS: "personal-k8s"
   # --- limits ---------------------------------------------------------------
   MAX_STEPS: "30"
+  # How much transcript goes out on one step.
   MAX_TOKENS_PER_TURN: "120000"
+  # Spend ceiling for a whole turn, counting only tokens outside the cached prefix.
+  # A thirty-step turn costs roughly 33k of these; this is a backstop, not a limit
+  # ordinary work should meet. Summing raw prompt tokens instead is what produced the
+  # spurious "достиг лимита токенов" message on healthy multi-step tasks.
+  MAX_BILLABLE_TOKENS_PER_TURN: "200000"
   LOG_LEVEL: "INFO"
 ---
 apiVersion: external-secrets.io/v1beta1
