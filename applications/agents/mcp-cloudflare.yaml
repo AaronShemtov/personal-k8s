@@ -58,7 +58,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: mcp-cloudflare
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.14 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.15 # {"$imagepolicy": "flux-system:ai-agents-platform"}
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "mcp_cloudflare"]
           ports:
