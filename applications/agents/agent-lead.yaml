@@ -90,22 +90,25 @@ metadata:
   name: agent-lead
   namespace: agents
   labels:
-    app.kubernetes.io/name: agent-lead
-    app.kubernetes.io/component: agent
+    app: agent-lead
 spec:
   replicas: 1
   # One bot token must have exactly one Telegram poller. Recreate avoids a brief
   # overlap during rollout that would make both pods receive 409 Conflict.
   strategy:
     type: Recreate
+  # spec.selector is IMMUTABLE. Changing it on a live Deployment makes every apply
+  # fail with "field is immutable", and since Flux applies ./applications as a single
+  # Kustomization, that one failure freezes every other app in the tree. Switching
+  # these to app.kubernetes.io/name did exactly that. Changing them now requires
+  # deleting the Deployment first — a deliberate act, not a tidy-up.
   selector:
     matchLabels:
-      app.kubernetes.io/name: agent-lead
+      app: agent-lead
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: agent-lead
-        app.kubernetes.io/component: agent
+        app: agent-lead
     spec:
       serviceAccountName: agent-lead
       imagePullSecrets:
@@ -174,10 +177,10 @@ metadata:
   name: agent-lead
   namespace: agents
   labels:
-    app.kubernetes.io/name: agent-lead
+    app: agent-lead
 spec:
   selector:
-    app.kubernetes.io/name: agent-lead
+    app: agent-lead
   ports:
     - name: health
       port: 8080
