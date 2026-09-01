@@ -73,16 +73,21 @@ spec:
   target:
     name: agent-lead-secrets
     creationPolicy: Owner
+  # remoteRef.key is the OCI Vault secret NAME. These are not guessable — the three
+  # below were previously invented (azure-foundry-api-key, agent-lead-telegram-token,
+  # agent-lead-github-pat), none existed, and the agent pod sat in
+  # CreateContainerConfigError because the Secret was never created. Check against the
+  # other ExternalSecrets in this directory before changing one.
   data:
     - secretKey: AZURE_OPENAI_API_KEY
       remoteRef:
-        key: azure-foundry-api-key
+        key: agents-azure-openai-api-key
     - secretKey: TELEGRAM_BOT_TOKEN
       remoteRef:
-        key: agent-lead-telegram-token
+        key: agent-lead-telegram-bot-token
     - secretKey: GITHUB_PAT
       remoteRef:
-        key: agent-lead-github-pat
+        key: agents-github-personal-access-token
 ---
 apiVersion: apps/v1
 kind: Deployment
