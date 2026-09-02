@@ -133,7 +133,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: agent
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.19 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.20 # {"$imagepolicy": "flux-system:ai-agents-platform"}
           imagePullPolicy: IfNotPresent
           # One image, three roles. This is the agent; the MCP servers run the same
           # image with a different command.
