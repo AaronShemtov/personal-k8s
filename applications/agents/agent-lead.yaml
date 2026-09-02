@@ -27,7 +27,7 @@ data:
   # gpt-5.2-codex does NOT exist on this resource (404, "The API deployment for this
   # resource does not exist") — do not add it back.
   MODEL_DEFAULT: "gpt-5.6-sol"
-  MODEL_ALLOWLIST: "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max"
+  MODEL_ALLOWLIST: "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,qwen3.5:0.8b"
   # Deployments that answer only on /responses. Measured: both reject /chat/completions
   # with HTTP 400 "The requested operation is unsupported" and return a proper
   # function_call on /responses. Microsoft and OpenAI both document this as a property
@@ -37,6 +37,21 @@ data:
   # gpt-5.3-codex answered in 4.0s against 31.8s for gpt-5.6-sol, got the read-only
   # root filesystem right, and volunteered a /healthz endpoint nobody asked for.
   MODELS_RESPONSES_API: "gpt-5.3-codex,gpt-5.1-codex-max"
+  # --- self-hosted inference ------------------------------------------------
+  # A separate Oracle VM in a different tenancy, so there is no private path to it:
+  # llm-host.1ms.my is a Cloudflare Tunnel whose connector runs on that box and reaches
+  # Ollama on localhost. Ollama has no authentication of its own and its /api/ surface
+  # can pull and delete models, so two things gate it — the tunnel routes only ^/v1/,
+  # and a WAF rule blocks anything without the header below.
+  OLLAMA_BASE_URL: "https://llm-host.1ms.my/v1"
+  MODELS_OLLAMA: "qwen3.5:0.8b"
+  # Not a secret: the name of the header. The value comes from the vault.
+  OLLAMA_AUTH_HEADER: "X-Agent-Key"
+  # Qwen3.5 thinks by default, and on four CPU cores with no GPU that is the difference
+  # between one second and a minute — measured on the box: 2103 completion tokens and
+  # 58s for a one-sentence answer with thinking on. reasoning_effort is the only lever
+  # Ollama honours over /v1; `think: false` works only on its native /api/chat.
+  OLLAMA_REASONING_EFFORT: "none"
   # --- Telegram -------------------------------------------------------------
   # Comma-separated numeric Telegram user IDs. Not a secret — it is an allow-list.
   # Fail-closed: if this is empty the bot refuses everyone, including you.
@@ -93,6 +108,9 @@ spec:
     - secretKey: GITHUB_PAT
       remoteRef:
         key: agents-github-personal-access-token
+    - secretKey: OLLAMA_AUTH_TOKEN
+      remoteRef:
+        key: agents-llm-host-shared-secret
 ---
 apiVersion: apps/v1
 kind: Deployment
