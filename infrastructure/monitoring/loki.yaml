@@ -128,5 +128,14 @@ spec:
         enabled: false
         grafanaAgent:
           installOperator: false
+      # On, and set to true deliberately rather than left at false while running anyway —
+      # which is what it was doing. The canary writes known lines to stdout and then
+      # queries Loki back for them, so it is the only thing here that can notice log
+      # collection silently breaking. It already has: 75 of 25,216 entries never came
+      # back, and 446 arrived twice.
+      #
+      # It is not free. Two pods, and about 1972 lines an hour of its own chatter into
+      # Loki — roughly 4% of total log volume. Worth it for an end-to-end check that
+      # nothing else provides.
       lokiCanary:
-        enabled: false
+        enabled: true
