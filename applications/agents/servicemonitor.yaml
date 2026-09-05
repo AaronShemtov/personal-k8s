@@ -1,0 +1,44 @@
+---
+# Scrape the two agents. Both serve /metrics from the same port as their probes, which
+# is a ClusterIP Service and never leaves the cluster.
+#
+# Two endpoints because the two Services name that port differently — the lead's is
+# `health` (it runs a plain health app beside a Telegram bot), the coder's is `mcp` (it
+# is an MCP server, and the health routes hang off the same app). An endpoint whose port
+# does not exist on a Service simply produces no target, so listing both is correct
+# rather than clever.
+#
+# mcp-cloudflare and mcp-cluster are deliberately not here. They expose /metrics too,
+# but having called none of the recording functions they would report zeros plus the
+# default process collectors — and resident memory, CPU and file descriptors per
+# container already come from the kubelet's cAdvisor metrics. Nothing would be gained
+# for the series they would cost. mcp-github is somebody else's image entirely.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: agents
+  namespace: agents
+  labels:
+    app.kubernetes.io/part-of: ai-agents-platform
+spec:
+  namespaceSelector:
+    matchNames:
+      - agents
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - agent-lead
+          - agent-coder
+  endpoints:
+    - port: health
+      path: /metrics
+      # The same 30s every other target here uses, so rate() windows line up across
+      # the whole stack.
+      interval: 30s
+      scrapeTimeout: 10s
+    - port: mcp
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
