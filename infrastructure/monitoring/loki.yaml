@@ -54,7 +54,11 @@ spec:
               period: 24h
       # 30 days of logs. Compactor enforces retention by deleting old chunks.
       limits_config:
-        retention_period: 168h     # 7 days
+        # 30 days. Measured volume is about 48 MB a day across 14 namespaces —
+        # and falling, since ndots:1 removed the 77% of CoreDNS traffic that was
+        # failed search-suffix lookups. A month is therefore ~1.4 GB against the
+        # 16 GB free on the node, with room to spare as things get noisier.
+        retention_period: 720h
         # Be lenient — we don't expect high cardinality but a misbehaving
         # Alloy could push more streams than we expect.
         max_global_streams_per_user: 10000
@@ -84,14 +88,34 @@ spec:
       persistence:
         enabled: false
 
-      # With persistence off, the chart does NOT mount anything at /var/loki,
-      # and the container rootfs is read-only — so Loki's `mkdir /var/loki`
-      # fails and it crashes. Provide a writable emptyDir at /var/loki for
-      # all of Loki's local paths (chunks, tsdb index, wal, compactor).
-      # Ephemeral by design: cleared on pod restart, consumes zero block volume.
+      # With persistence off the chart mounts nothing at /var/loki, and the container
+      # rootfs is read-only, so Loki's `mkdir /var/loki` fails and it crashes. It needs
+      # a writable volume there for chunks, the tsdb index, the wal and the compactor.
+      #
+      # hostPath rather than emptyDir, and rather than a PVC. Each choice is a trade
+      # made with eyes open:
+      #
+      #   * emptyDir — what this was — loses everything when the pod restarts, which
+      #     made the 30-day retention above a fiction. Flux rolls pods several times a
+      #     day, so the real window was hours.
+      #   * a PVC on oci-bv would be durable and would migrate with the pod, but the
+      #     minimum billable volume is 50 GB and only one more fits in the 200 GB Always
+      #     Free allowance. Spending the last slot on ~1.4 GB of logs is not a trade
+      #     worth making; that slot should go to something that needs a filesystem.
+      #   * hostPath survives pod restarts, costs no block volume, and loses data when
+      #     the node is replaced. On this cluster that is a real event — both nodes were
+      #     hours old when this was written — so treat the history as best-effort.
+      #
+      # Deliberately NOT pinned to a node. Pinning would keep the data across
+      # reschedules but leaves Loki Pending forever when OKE replaces the node it is
+      # bound to, and a silently missing log pipeline is worse than a reset one. Without
+      # a pin, a move costs the history and Loki comes straight back up — the same
+      # failure emptyDir had, but only on node replacement instead of every rollout.
       extraVolumes:
         - name: loki-data
-          emptyDir: {}
+          hostPath:
+            path: /var/lib/loki
+            type: DirectoryOrCreate
       extraVolumeMounts:
         - name: loki-data
           mountPath: /var/loki
