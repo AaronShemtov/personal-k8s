@@ -34,6 +34,16 @@ spec:
       labels:
         app: mcp-cluster
     spec:
+      # Kubernetes defaults to ndots:5, which means any name with fewer than five dots
+      # is tried against all five search suffixes BEFORE being asked as written. Measured
+      # on this cluster: 77% of every DNS query is a search-suffix attempt that returns
+      # NXDOMAIN, and one lookup of api.telegram.org costs up to ten queries. Everything
+      # here is addressed by its full name, so asking as written first is both correct
+      # and cheaper. ndots only reorders the attempts, it cannot make a name unresolvable.
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
       serviceAccountName: mcp-cluster
       imagePullSecrets:
         - name: ocir-pull-secret
