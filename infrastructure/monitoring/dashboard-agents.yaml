@@ -1,0 +1,439 @@
+---
+# Grafana dashboard for the agents. The sidecar configured in grafana.yaml imports any
+# ConfigMap in this namespace labelled grafana_dashboard=1, so adding one is the whole
+# deployment step.
+#
+# The queries use the OpenTelemetry GenAI metric names the agents emit
+# (gen_ai_client_token_usage, gen_ai_invoke_agent_*, gen_ai_execute_tool_duration) plus
+# three of our own for what those conventions have no place for: what local policy
+# decided, whether a human confirmed, and how long they took about it.
+#
+# Panels are ordered by the question they answer, not by metric: what did it cost, how
+# much did it do, where did the time go, what was refused, what failed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-ai-agents
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  ai-agents.json: |-
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": false,
+      "graphTooltip": 1,
+      "title": "AI Agents",
+      "uid": "ai-agents",
+      "tags": [
+        "agents",
+        "genai"
+      ],
+      "timezone": "browser",
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      },
+      "refresh": "1m",
+      "schemaVersion": 39,
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Billable tokens (24h)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[24h])) - sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"cached\"}[24h])) + sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"output\"}[24h]))",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "description": "Input minus cached plus output. The one that tracks spend: a cached prompt token is billed at roughly a tenth of a fresh one, so raw totals overstate cost."
+        },
+        {
+          "type": "stat",
+          "title": "Prompt cache hit (24h)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"cached\"}[24h])) / clamp_min(sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[24h])), 1)",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "description": "Share of prompt tokens served from the provider's cache. The system prompt and tool definitions are a stable prefix, so from the second step of a turn this should be high. Near zero means something is perturbing the prefix."
+        },
+        {
+          "type": "stat",
+          "title": "Turns (24h)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(increase(agent_turns_total[24h]))",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "description": ""
+        },
+        {
+          "type": "stat",
+          "title": "Waiting on a human, p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 18,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(agent_approval_wait_seconds_bucket[24h])))",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "description": "How long confirmations sit unanswered. On an agent that asks before it changes anything, this is the latency no engineering shortens."
+        },
+        {
+          "type": "timeseries",
+          "title": "Tokens per hour, by kind",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 4,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (gen_ai_token_type) (increase(gen_ai_client_token_usage_sum[1h]))",
+              "legendFormat": "{{gen_ai_token_type}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "description": ""
+        },
+        {
+          "type": "timeseries",
+          "title": "Turns per hour — and how they ended",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 4,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (agent, stopped_because) (increase(agent_turns_total[1h]))",
+              "legendFormat": "{{agent}} / {{stopped_because}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "description": "max_steps or budget_exhausted appearing here means turns are being cut off rather than finishing."
+        },
+        {
+          "type": "timeseries",
+          "title": "Model call duration",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 12,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, gen_ai_request_model) (rate(gen_ai_client_operation_duration_seconds_bucket[5m])))",
+              "legendFormat": "p95 {{gen_ai_request_model}}",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, gen_ai_request_model) (rate(gen_ai_client_operation_duration_seconds_bucket[5m])))",
+              "legendFormat": "p50 {{gen_ai_request_model}}",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "description": "One model call, not a whole turn. Compare against tool duration to tell a slow model from slow tools."
+        },
+        {
+          "type": "timeseries",
+          "title": "Tool call duration, p95 by tool",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 12,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "topk(8, histogram_quantile(0.95, sum by (le, gen_ai_tool_name) (rate(gen_ai_execute_tool_duration_seconds_bucket[15m]))))",
+              "legendFormat": "{{gen_ai_tool_name}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "description": ""
+        },
+        {
+          "type": "timeseries",
+          "title": "What local policy decided",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 20,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (decision) (increase(agent_policy_decisions_total[1h]))",
+              "legendFormat": "{{decision}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "description": "deny is policy refusing. rejected is a person pressing Reject. unknown_tool is the model inventing a tool that does not exist. None of the three is an error."
+        },
+        {
+          "type": "timeseries",
+          "title": "Model errors",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 20,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (error_type, gen_ai_request_model) (increase(gen_ai_client_operation_duration_seconds_count{error_type!=\"\"}[1h]))",
+              "legendFormat": "{{gen_ai_request_model}} / {{error_type}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "description": "Rate-limit and transport failures show up here first. A rising count is the signal that provider-side quota is worth looking at."
+        },
+        {
+          "type": "bargauge",
+          "title": "Busiest tools (24h)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 28,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "topk(10, sum by (tool) (increase(agent_policy_decisions_total[24h])))",
+              "legendFormat": "{{tool}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "description": "",
+          "options": {
+            "orientation": "horizontal"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Confirmations asked of a human",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 28,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (outcome) (increase(agent_approvals_total[1h]))",
+              "legendFormat": "{{outcome}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "description": ""
+        }
+      ]
+    }
