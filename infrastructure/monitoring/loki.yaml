@@ -122,7 +122,12 @@ spec:
           command:
             - sh
             - -c
-            - chown -R 10001:10001 /var/loki && chmod 0770 /var/loki
+            # chown only. A chmod here fails with "Operation not permitted": after the
+            # chown the directory belongs to 10001, and root without CAP_FOWNER — every
+            # capability but CHOWN is dropped — may not change modes on a file it does
+            # not own. It is also unnecessary: the kubelet creates the directory 0755,
+            # and the owner it now has can write.
+            - chown -R 10001:10001 /var/loki
           securityContext:
             # Only this container, and only to call chown. runAsNonRoot has to be
             # switched off here explicitly because the pod-level context sets it.
