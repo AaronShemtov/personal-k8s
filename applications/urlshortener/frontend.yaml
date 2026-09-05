@@ -48,6 +48,18 @@ spec:
                   matchLabels:
                     app: urlshortener
                     component: frontend
+      # ndots:5 is the Kubernetes default: a name with fewer than five dots is tried
+      # against every search suffix before being asked as written. The Autonomous
+      # Database host has four, so each lookup of it cost five suffix attempts in two
+      # record types and only the last one was real. Measured from CoreDNS's own logs,
+      # this host was the single most requested name in the cluster — roughly 2700 of a
+      # 5000-line sample — because reader and writer resolve it on every call.
+      # ndots only reorders the attempts; the search list is still tried, so nothing
+      # that resolves today can stop resolving.
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
       serviceAccountName: urlshortener # for OCIR pull secret
       containers:
         - name: nginx
