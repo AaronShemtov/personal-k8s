@@ -32,7 +32,13 @@ metadata:
 spec:
   providerRef:
     name: telegram
-  eventSeverity: info
+  # `error`, not `info`. On info this alert sends every successful reconcile,
+  # which is both noise — the group already gets a build notification from CI on
+  # every image — and a real failure mode: a large apply lists every resource it
+  # touched, and one of those messages was rejected by Telegram for exceeding the
+  # 4096-character limit. What is wanted from Flux here is the thing CI cannot
+  # tell you: that something failed to reconcile.
+  eventSeverity: error
   eventSources:
     - kind: HelmRelease
       name: '*'
