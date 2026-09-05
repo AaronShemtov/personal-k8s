@@ -15,6 +15,11 @@ metadata:
   namespace: flux-system
 spec:
   type: telegram
+  # Required by notification-controller v1.6: without it every dispatch fails with
+  # "provider has no address" and nothing is sent. It had been failing that way 947
+  # times a day, silently, because a notifier that cannot start produces no
+  # notification about being unable to start.
+  address: https://api.telegram.org
   channel: "-1003921436547"
   secretRef:
     name: telegram-credentials
