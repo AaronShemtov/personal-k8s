@@ -111,6 +111,30 @@ spec:
       # bound to, and a silently missing log pipeline is worse than a reset one. Without
       # a pin, a move costs the history and Loki comes straight back up — the same
       # failure emptyDir had, but only on node replacement instead of every rollout.
+      # Kubernetes does not manage ownership on a hostPath volume — fsGroup applies to
+      # volumes whose driver can chown, and hostPath has no driver. The kubelet creates
+      # the directory as root:root 0755, Loki runs as uid 10001, and it dies on startup
+      # with `mkdir /var/loki/rules: permission denied`. One container, run once, fixes
+      # the ownership; everything after it keeps the chart's non-root context.
+      initContainers:
+        - name: chown-loki-data
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - chown -R 10001:10001 /var/loki && chmod 0770 /var/loki
+          securityContext:
+            # Only this container, and only to call chown. runAsNonRoot has to be
+            # switched off here explicitly because the pod-level context sets it.
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["CHOWN"]
+          volumeMounts:
+            - name: loki-data
+              mountPath: /var/loki
       extraVolumes:
         - name: loki-data
           hostPath:
