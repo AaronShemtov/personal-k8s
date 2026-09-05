@@ -1,0 +1,48 @@
+---
+# Loki was the one component of the stack nobody watched.
+#
+# Prometheus scrapes alloy, alertmanager, coredns, kube-state-metrics, kubelet, the
+# operator, node-exporter, Prometheus itself and Tempo — every ServiceMonitor the
+# kube-prometheus-stack chart ships, plus the one we wrote for Tempo. Loki had none, so
+# there were no metrics for how much it ingests, how often it fails, or how much it
+# stores. That gap matters more than it looks: the plan is to move its storage to OCI
+# Object Storage, where the Always Free allowance is counted in API requests, and
+# without these metrics the only way to know the request rate is to read the counters
+# out of the pod by hand — which is exactly how it was measured the first time.
+#
+# Written by hand rather than switching on `monitoring.serviceMonitor` in the chart
+# values: the selector has to exclude three sibling Services that carry the same
+# app.kubernetes.io labels (canary, headless, memberlist), and doing that explicitly is
+# clearer than discovering which chart key does it in this version.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: loki
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - monitoring
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: loki
+      app.kubernetes.io/instance: loki
+    # Three other Services share those two labels. `loki-canary` carries a component
+    # label, `loki-headless` carries variant=headless and is explicitly marked
+    # prometheus.io/service-monitor=false by the chart, and `loki-memberlist` has no
+    # http-metrics port at all. Excluding the first two by absence leaves the one
+    # Service that actually serves metrics.
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: DoesNotExist
+      - key: variant
+        operator: DoesNotExist
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      # Matches the 30s used by every other target here, so rate() windows line up.
+      interval: 30s
+      scrapeTimeout: 10s
