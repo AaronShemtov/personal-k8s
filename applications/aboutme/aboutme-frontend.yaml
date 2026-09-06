@@ -1,0 +1,99 @@
+# aboutme-frontend serves aboutme.1ms.my — a static About Me site.
+# No backend, database or persistent storage: nginx serves baked-in assets.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aboutme-frontend
+  namespace: aboutme
+  labels:
+    app: aboutme-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aboutme-frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: aboutme-frontend
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: name
+                    operator: In
+                    values: ["apps-pool"]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: aboutme-frontend
+      serviceAccountName: aboutme
+      containers:
+        - name: nginx
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/aboutme-frontend:0.0.0 # {"$imagepolicy": "flux-system:aboutme-frontend"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 3
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - {name: nginx-cache, mountPath: /var/cache/nginx}
+            - {name: nginx-run, mountPath: /var/run}
+            - {name: nginx-tmp, mountPath: /tmp}
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: nginx-tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aboutme-frontend
+  namespace: aboutme
+  labels:
+    app: aboutme-frontend
+spec:
+  selector:
+    app: aboutme-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

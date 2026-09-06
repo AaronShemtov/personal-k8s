@@ -54,14 +54,14 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# cv.1ms.my — static CV site.
+# aboutme.1ms.my — static About Me site.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
-  name: cv-frontend
+  name: aboutme-frontend
   namespace: flux-system
 spec:
-  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/cv-frontend
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/aboutme-frontend
   interval: 2m
   secretRef:
     name: ocir-pull-secret
@@ -69,11 +69,11 @@ spec:
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImagePolicy
 metadata:
-  name: cv-frontend
+  name: aboutme-frontend
   namespace: flux-system
 spec:
   imageRepositoryRef:
-    name: cv-frontend
+    name: aboutme-frontend
   policy:
     semver:
       range: '>=0.0.0'
@@ -155,9 +155,8 @@ spec:
 #
 # ONE image serves four Deployments in the agents namespace — the agent itself plus
 # mcp-cloudflare and mcp-cluster, which differ only by their `command:`. They share a
-# dependency set, so one image means one policy here instead of three. (mcp-github is
-# GitHub's own image from ghcr.io and is deliberately NOT automated: its tag is bumped
-# by hand, since a third party's release should not roll into the cluster unreviewed.)
+# dependency set, so one policy here instead of three. (mcp-github is GitHub's own
+# image from ghcr.io and is deliberately NOT automated.)
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
@@ -209,7 +208,7 @@ spec:
 # so the same credentials Flux uses to PULL manifests also let it PUSH
 # tag-bump commits.
 #
-# Path is the whole ./applications tree — covers urlshortener/, cv/, pwd/,
+# Path is the whole ./applications tree — covers urlshortener/, aboutme/, pwd/,
 # infra/ and ai-sre-agent/. The automation only edits files containing
 # the marker comment, so subfolders without markers are ignored.
 #
