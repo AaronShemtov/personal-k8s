@@ -42,7 +42,7 @@ spec:
       serviceAccountName: aboutme
       containers:
         - name: nginx
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/aboutme-frontend:0.0.26 # {"$imagepolicy": "flux-system:aboutme-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/aboutme-frontend:0.0.27 # {"$imagepolicy": "flux-system:aboutme-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
