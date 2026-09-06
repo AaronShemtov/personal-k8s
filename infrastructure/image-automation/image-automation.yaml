@@ -126,15 +126,15 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
-# agent.1ms.my (future) — AI SRE agent.
-# Image tag scheme matches the others: 0.0.<run_number> from GitHub Actions.
+# AI SRE agent. The image tag scheme matches the other applications:
+# 0.0.<run_number> from GitHub Actions.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
-  name: gemini-sre-agent
+  name: ai-sre-agent
   namespace: flux-system
 spec:
-  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/gemini-sre-agent
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-sre-agent
   interval: 2m
   secretRef:
     name: ocir-pull-secret
@@ -142,11 +142,11 @@ spec:
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImagePolicy
 metadata:
-  name: gemini-sre-agent
+  name: ai-sre-agent
   namespace: flux-system
 spec:
   imageRepositoryRef:
-    name: gemini-sre-agent
+    name: ai-sre-agent
   policy:
     semver:
       range: '>=0.0.0'
@@ -210,11 +210,11 @@ spec:
 # tag-bump commits.
 #
 # Path is the whole ./applications tree — covers urlshortener/, cv/, pwd/,
-# infra/ and gemini-sre-agent/. The automation only edits files containing
+# infra/ and ai-sre-agent/. The automation only edits files containing
 # the marker comment, so subfolders without markers are ignored.
 #
-# The agent's Deployment lives under ./applications/gemini-sre-agent/ with the
-# marker `# {"$imagepolicy": "flux-system:gemini-sre-agent"}`, so its tag is
+# The agent's Deployment lives under ./applications/ai-sre-agent/ with the
+# marker `# {"$imagepolicy": "flux-system:ai-sre-agent"}`, so its tag is
 # bumped automatically on every new OCIR build, exactly like the frontends.
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageUpdateAutomation
