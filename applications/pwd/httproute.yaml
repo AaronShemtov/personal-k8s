@@ -1,9 +1,9 @@
 ---
-# Routes all traffic for hostname pwd.1ms.my to the pwd-frontend Service.
+# Routes all traffic for hostname secrets.1ms.my to the pwd-frontend Service.
 #
 # parentRefs references the same homelab-gateway that handles 1ms.my,
 # so a single Envoy data-plane handles all hostnames — Cloudflare Tunnel
-# already forwards pwd.1ms.my to this same Envoy data-plane service.
+# already forwards secrets.1ms.my to this same Envoy data-plane service.
 #
 # The Gateway has `allowedRoutes.namespaces.from: All`, so HTTPRoutes from
 # any namespace (including this "cv" namespace) attach without a ReferenceGrant.
@@ -18,7 +18,7 @@ spec:
       namespace: envoy-gateway-system
       sectionName: http
   hostnames:
-    - "pwd.1ms.my"
+    - "secrets.1ms.my"
   rules:
     - matches:
         - path:
