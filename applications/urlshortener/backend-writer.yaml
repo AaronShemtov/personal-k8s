@@ -97,6 +97,19 @@ spec:
                 secretKeyRef:
                   name: adb-credentials
                   key: password
+            # Write authorisation. Without at least one of these the process
+            # exits at startup rather than serving an open /shorten — see
+            # write-auth-externalsecret.yaml for what happened when it was open.
+            - name: TURNSTILE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: urlshortener-write-auth
+                  key: turnstile-secret
+            - name: SHORTEN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: urlshortener-write-auth
+                  key: api-key
           livenessProbe:
             httpGet:
               path: /healthz
