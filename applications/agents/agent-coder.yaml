@@ -30,8 +30,8 @@ data:
   # More steps than the lead: writing a service end to end is genuinely more calls than
   # answering a question. The spend ceiling is what actually bounds a runaway turn.
   MAX_STEPS: "40"
-  MAX_TOKENS_PER_TURN: "120000"
-  MAX_BILLABLE_TOKENS_PER_TURN: "300000"
+  MAX_TOKENS_PER_TURN: "150000"
+  MAX_BILLABLE_TOKENS_PER_TURN: "500000"
   LOG_LEVEL: "INFO"
 ---
 # Azure and GitHub only. No Telegram token — this agent has no chat to answer in.
