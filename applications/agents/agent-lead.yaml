@@ -69,6 +69,26 @@ data:
   GITHUB_WRITE_MODE: "direct-push"
   CLOUDFLARE_WRITE_MODE: "approve"
   PROTECTED_REPOS: "personal-k8s"
+  # --- durable memory -------------------------------------------------------
+  # Conversation history and facts about the user, in the Autonomous Database
+  # that also holds the URL shortener — but under its own schema, AGENTS, with
+  # no grants on anything else. Verified: `select from admin.urls` as this user
+  # is ORA-00942. An agent holding the ADMIN password could delete the
+  # shortener's data by accident, so it does not hold it.
+  #
+  # ORDS' REST-Enabled SQL endpoint, so this needs no Oracle client, no wallet
+  # and no network ACL change — the same reason the shortener talks SODA over
+  # HTTPS. Note the /ords/agents/ path: that is the schema's own mapping,
+  # created by ORDS_ADMIN.ENABLE_SCHEMA, not the ADMIN one.
+  #
+  # Unset either this or ADB_PASSWORD and the agent still starts, logs a
+  # warning, and forgets everything on restart — which is how it behaved before
+  # this existed.
+  ADB_SQL_URL: "https://GB6D5BC088AFCDA-URLSHORTENERJSON.adb.il-jerusalem-1.oraclecloudapps.com/ords/agents/_/sql"
+  ADB_USERNAME: "AGENTS"
+  # Messages replayed into a chat after a restart. Token-based trimming happens
+  # afterwards, so this bounds the read, not what is sent to the model.
+  MEMORY_HISTORY_MESSAGES: "40"
   # --- limits ---------------------------------------------------------------
   MAX_STEPS: "30"
   # How much transcript goes out on one step.
@@ -111,6 +131,12 @@ spec:
     - secretKey: OLLAMA_AUTH_TOKEN
       remoteRef:
         key: agents-llm-host-shared-secret
+    # The AGENTS schema in the Autonomous Database — see ADB_SQL_URL above.
+    # Not the ADMIN password: this user can read and write its own two tables
+    # and nothing else.
+    - secretKey: ADB_PASSWORD
+      remoteRef:
+        key: agents-adb-password
 ---
 apiVersion: apps/v1
 kind: Deployment
