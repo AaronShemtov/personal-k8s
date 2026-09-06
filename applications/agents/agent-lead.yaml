@@ -77,7 +77,7 @@ data:
   # A thirty-step turn costs roughly 33k of these; this is a backstop, not a limit
   # ordinary work should meet. Summing raw prompt tokens instead is what produced the
   # spurious "достиг лимита токенов" message on healthy multi-step tasks.
-  MAX_BILLABLE_TOKENS_PER_TURN: "200000"
+  MAX_BILLABLE_TOKENS_PER_TURN: "300000"
   LOG_LEVEL: "INFO"
 ---
 apiVersion: external-secrets.io/v1beta1
