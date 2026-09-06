@@ -124,6 +124,13 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
+            # /readyz reaches across the internet to Oracle, so it is not a local
+            # check and cannot be held to a local check's budget. The default
+            # timeoutSeconds is 1, and the kubelet was cutting the connection
+            # before the handler's own 2s deadline expired — which is exactly what
+            # the recurring "readiness probe: storage unhealthy ... context
+            # canceled" lines were. The handler now gives up at 3s, inside this.
+            timeoutSeconds: 5
           resources:
             requests:
               cpu: 50m
