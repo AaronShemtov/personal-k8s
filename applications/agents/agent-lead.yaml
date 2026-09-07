@@ -54,6 +54,17 @@ data:
   # got the read-only root filesystem right, and volunteered a /healthz endpoint
   # nobody asked for.
   MODELS_RESPONSES_API: "gpt-6-astra,gpt-5.3-codex,gpt-5.1-codex-max"
+  # Tools Azure runs on its own side. web_search_preview is what lets the agent
+  # read a page on the open internet — nothing in our own tool set can, so before
+  # this "проверь вот эту страницу" was a request it could only decline.
+  #
+  # It does not appear in the tool catalogue and the loop never dispatches it:
+  # Azure performs the search and returns its own output items. Only reaches
+  # /responses models, which is every model above.
+  #
+  # Verified against this resource: asked for the H1 of example.com it answered
+  # "Example Domain"; asked what 1ms.my is, it read the page.
+  HOSTED_TOOLS: "web_search_preview"
   # --- self-hosted inference ------------------------------------------------
   # A separate Oracle VM in a different tenancy, so there is no private path to it:
   # llm-host.1ms.my is a Cloudflare Tunnel whose connector runs on that box and reaches
