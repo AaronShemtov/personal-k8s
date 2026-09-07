@@ -92,6 +92,22 @@ spec:
     # Inject the SECRET_KEY env var from its own ExternalSecret-managed secret.
     envFromSecret: grafana-secret-key
 
+    # The Azure service-principal secret, read by the Azure Monitor datasource
+    # below through $__env{}. envValueFrom rather than a second envFromSecret,
+    # because that value takes one name only.
+    #
+    # optional: true is the important part. Without it, a Secret that has not
+    # synced yet — the vault entry missing, ESO not reconciled — would put Grafana
+    # in CreateContainerConfigError and take the whole monitoring stack down over a
+    # datasource nobody had configured yet. With it, Grafana starts, and only the
+    # Azure datasource is broken until the secret arrives.
+    envValueFrom:
+      AZURE_MONITOR_CLIENT_SECRET:
+        secretKeyRef:
+          name: grafana-azure-monitor
+          key: client-secret
+          optional: true
+
     # ---------------- grafana.ini ----------------
     grafana.ini:
       server:
@@ -154,6 +170,37 @@ spec:
             url: http://loki.monitoring.svc.cluster.local:3100
             access: proxy
             editable: false
+          # Azure's own view of the AI resource. Everything the agents know about
+          # themselves — tokens, turns, tool latency, policy decisions — is already
+          # here from the client side, and that is the better vantage point: this
+          # cluster knows the agent, the profile and the tool, while Azure only
+          # knows the deployment.
+          #
+          # What Azure has and the platform cannot see: throttling and quota (429s,
+          # TPM/RPM), what the deployments actually cost, and content-filter events.
+          # That is the reason for this datasource, not duplicating the dashboards.
+          #
+          # No exporter and no extra pod: the plugin ships with Grafana and Azure
+          # OpenAI publishes to Azure Monitor on its own. Metrics only — request
+          # logs would mean Diagnostic Settings into Log Analytics, whose ingestion
+          # is the one part of this stack that costs money.
+          - name: Azure Monitor
+            type: grafana-azure-monitor-datasource
+            uid: azuremonitor
+            access: proxy
+            editable: false
+            jsonData:
+              azureAuthType: clientsecret
+              cloudName: azuremonitor
+              # grafana-azure-monitor, Monitoring Reader on the ai-agent-support
+              # account only. Read-only and scoped to one resource.
+              tenantId: b94c84c1-ee14-4b02-b2e0-5843df3bce5d
+              clientId: 323c9a3a-0a32-4750-a4d6-fc16d94ae653
+              subscriptionId: 7839dddb-f816-4f74-96c9-87868efc36b6
+            secureJsonData:
+              # Interpolated by Grafana at provisioning time from the env var
+              # above, so the credential itself never appears in this repository.
+              clientSecret: $__env{AZURE_MONITOR_CLIENT_SECRET}
 
     # ---------------- Dashboard provisioning ----------------
     # The chart deploys a sidecar (kiwigrid/k8s-sidecar) that watches for
