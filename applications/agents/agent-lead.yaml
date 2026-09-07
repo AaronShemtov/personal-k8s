@@ -26,17 +26,34 @@ data:
   #
   # gpt-5.2-codex does NOT exist on this resource (404, "The API deployment for this
   # resource does not exist") — do not add it back.
-  MODEL_DEFAULT: "gpt-5.6-sol"
-  MODEL_ALLOWLIST: "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,qwen3.5:0.8b"
-  # Deployments that answer only on /responses. Measured: both reject /chat/completions
-  # with HTTP 400 "The requested operation is unsupported" and return a proper
-  # function_call on /responses. Microsoft and OpenAI both document this as a property
-  # of the codex family across four generations, so it is not a gap that will close.
+  # gpt-6-astra leads. Confirmed present on this resource: /models lists
+  # gpt-6-astra, gpt-6-astra-2026-09-03 and a -private variant.
+  MODEL_DEFAULT: "gpt-6-astra"
+  MODEL_ALLOWLIST: "gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,qwen3.5:0.8b"
+  # Deployments that must be called on /responses rather than /chat/completions.
   #
-  # These are the models built for code, and it shows: on the same Dockerfile task
-  # gpt-5.3-codex answered in 4.0s against 31.8s for gpt-5.6-sol, got the read-only
-  # root filesystem right, and volunteered a /healthz endpoint nobody asked for.
-  MODELS_RESPONSES_API: "gpt-5.3-codex,gpt-5.1-codex-max"
+  # The codex family rejects /chat/completions outright: HTTP 400 "The requested
+  # operation is unsupported", and returns a proper function_call on /responses.
+  # Microsoft and OpenAI both document this as a property of the family across four
+  # generations, so it is not a gap that will close.
+  #
+  # gpt-6-astra is here for a different reason, measured 2026-09-07 against this
+  # resource. Plain text on /chat/completions works and returns 200. Add a single
+  # tool and the same endpoint answers HTTP 400: "Function tools with
+  # reasoning_effort are not supported for gpt-6-astra in /v1/chat/completions. To
+  # use function tools, use /v1/responses or set reasoning_effort to 'none'." The
+  # lead is handed ~60 tools, so tools are not optional here and 'none' would throw
+  # away the reasoning this model is worth having for. On /responses the same call
+  # returns status=completed with function_call get_weather {"city":"Paris"}.
+  #
+  # Leaving astra out of this list would therefore not fail loudly at startup — it
+  # would fail on the first turn that needs a tool, which is every turn.
+  #
+  # The codex models are the ones built for code, and it shows: on the same
+  # Dockerfile task gpt-5.3-codex answered in 4.0s against 31.8s for gpt-5.6-sol,
+  # got the read-only root filesystem right, and volunteered a /healthz endpoint
+  # nobody asked for.
+  MODELS_RESPONSES_API: "gpt-6-astra,gpt-5.3-codex,gpt-5.1-codex-max"
   # --- self-hosted inference ------------------------------------------------
   # A separate Oracle VM in a different tenancy, so there is no private path to it:
   # llm-host.1ms.my is a Cloudflare Tunnel whose connector runs on that box and reaches
