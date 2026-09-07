@@ -51,3 +51,35 @@ spec:
   exclusionList:
     - "no new tags"
     - "no updates made"
+---
+# The one kind of success that is worth a message: a new image actually landing
+# in the cluster.
+#
+# Turning the alert above back to `info` would bring that back together with
+# everything it was silenced for — every successful Kustomization and HelmRelease
+# reconcile, including the large apply whose resource list Telegram rejected for
+# exceeding 4096 characters. So this is a second alert instead, narrow enough that
+# the message is always two lines.
+#
+# ImageUpdateAutomation only, deliberately not ImagePolicy. Both fire once per new
+# tag, so listening to each would report every deploy twice; the automation is the
+# one that means the manifest was committed and the cluster is taking it, rather
+# than merely that a tag was noticed in the registry.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: telegram-image-updates
+  namespace: flux-system
+spec:
+  providerRef:
+    name: telegram
+  eventSeverity: info
+  eventSources:
+    - kind: ImageUpdateAutomation
+      name: '*'
+  # Without these, every idle scan reports that it found nothing — which for a
+  # two-minute interval is 720 messages a day saying "no".
+  exclusionList:
+    - "no new tags"
+    - "no updates made"
+    - "no updates made in repository"
