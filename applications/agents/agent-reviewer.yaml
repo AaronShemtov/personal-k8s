@@ -144,7 +144,7 @@ spec:
           # 0.0.41 is the first image containing agents/reviewer.yaml. Starting this
           # Deployment on anything older means load_profile("reviewer") raises
           # ProfileNotFound and the pod crash-loops until the image catches up.
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.42 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.43 # {"$imagepolicy": "flux-system:ai-agents-platform"}
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "mcp_agent"]
           ports:
