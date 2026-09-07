@@ -1,0 +1,186 @@
+# The reviewer agent. Same image and same loop as the other two, with an MCP tool in
+# front of it: `python -m mcp_agent`. The lead reaches it as reviewer__ask.
+#
+# Why a third agent rather than the lead reading its own diff: the lead is the one who
+# asked for the change, and an author reviewing their own work is not review. Why a
+# different model from the coder: the same model reviewing its own output inherits its
+# own blind spots.
+#
+# It cannot write anything. That is enforced three times over, deliberately — the
+# profile lists only read tools, GITHUB_WRITE_MODE below is read-only, and the PAT it
+# holds is the same fine-grained token scoped to two repositories. A reviewer able to
+# fix what it finds would quietly stop reporting.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-reviewer-config
+  namespace: agents
+data:
+  AGENT_PROFILE: "reviewer"
+  AZURE_OPENAI_BASE_URL: "https://ai-agent-support.services.ai.azure.com/openai/v1/"
+  # The profile pins gpt-5.1-codex-max; MODEL_DEFAULT is only a fallback and has to be
+  # a model that exists. It is in MODELS_RESPONSES_API because the codex family rejects
+  # /chat/completions outright — that list is how the client picks the endpoint.
+  #
+  # Cheaper than the model it reviews: 1.25/10.00 per 1M input/output against the
+  # coder's 1.75/14.00 on gpt-5.3-codex. Reviewing costs less than writing anyway — it
+  # reads a diff instead of generating a repository — so there is nothing to save here
+  # by picking a weaker model, and a missed defect reaches the cluster in ten minutes.
+  MODEL_DEFAULT: "gpt-5.1-codex-max"
+  MODEL_ALLOWLIST: "gpt-5.1-codex-max,gpt-5.3-codex,gpt-6-astra"
+  MODELS_RESPONSES_API: "gpt-5.1-codex-max,gpt-5.3-codex,gpt-6-astra"
+  # No Cloudflare and no coder: this agent reviews, it does not delegate and it does
+  # not change DNS. Cluster access is read-only by the mcp-cluster ClusterRole, and it
+  # is here so a manifest can be checked against what is actually running.
+  MCP_GITHUB_URL: "http://mcp-github.agents.svc.cluster.local:8082/"
+  MCP_CLUSTER_URL: "http://mcp-cluster.agents.svc.cluster.local:8080/mcp"
+  # The policy-level half of "cannot write". WriteMode read-only refuses every mutating
+  # GitHub call before it is made, whatever the model decides to try.
+  GITHUB_WRITE_MODE: "read-only"
+  PROTECTED_REPOS: "personal-k8s"
+  # Half the coder's, and lower than the lead's. Reading a diff and forming an opinion
+  # is bounded work; twenty steps of it means the agent is going in circles, and the
+  # right outcome then is a turn that ends rather than one that keeps paying.
+  MAX_STEPS: "20"
+  MAX_TOKENS_PER_TURN: "150000"
+  MAX_BILLABLE_TOKENS_PER_TURN: "300000"
+  LOG_LEVEL: "INFO"
+---
+# Azure and GitHub only. No Telegram token — this agent has no chat to answer in, and
+# no ADB credentials — each review is a fresh conversation with no history to carry.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: agent-reviewer-secrets
+  namespace: agents
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault
+    kind: ClusterSecretStore
+  target:
+    name: agent-reviewer-secrets
+    creationPolicy: Owner
+  # remoteRef.key is the OCI Vault secret NAME and is not guessable — these two are
+  # copied from agent-coder-secrets, which is the way to get them right. Inventing
+  # them is how agent-lead ended up in CreateContainerConfigError for 49 restarts.
+  data:
+    - secretKey: AZURE_OPENAI_API_KEY
+      remoteRef:
+        key: agents-azure-openai-api-key
+    - secretKey: GITHUB_PAT
+      remoteRef:
+        key: agents-github-personal-access-token
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-reviewer
+  namespace: agents
+imagePullSecrets:
+  - name: ocir-pull-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-reviewer
+  namespace: agents
+  labels:
+    app: agent-reviewer
+spec:
+  selector:
+    app: agent-reviewer
+  ports:
+    - name: mcp
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-reviewer
+  namespace: agents
+  labels:
+    app: agent-reviewer
+spec:
+  replicas: 1
+  # spec.selector is IMMUTABLE. Renaming these labels on a live Deployment makes every
+  # apply fail, and because Flux applies ./applications as one Kustomization that
+  # failure freezes every other app in the tree.
+  selector:
+    matchLabels:
+      app: agent-reviewer
+  template:
+    metadata:
+      labels:
+        app: agent-reviewer
+    spec:
+      # ndots:1 for the same reason as the other agents: everything here is addressed
+      # by its full name, so asking as written first is both correct and cheaper than
+      # five NXDOMAIN search-suffix attempts per lookup.
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
+      serviceAccountName: agent-reviewer
+      imagePullSecrets:
+        - name: ocir-pull-secret
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: name
+                    operator: In
+                    values: ["main-pool"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          # 0.0.41 is the first image containing agents/reviewer.yaml. Starting this
+          # Deployment on anything older means load_profile("reviewer") raises
+          # ProfileNotFound and the pod crash-loops until the image catches up.
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.41 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "mcp_agent"]
+          ports:
+            - name: mcp
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: agent-reviewer-config
+            - secretRef:
+                name: agent-reviewer-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

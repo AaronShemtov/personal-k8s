@@ -93,6 +93,11 @@ data:
   # client gives this server a much longer read timeout than the rest, because a
   # delegated agent runs a whole tool loop of its own before it answers.
   MCP_CODER_URL: "http://agent-coder.agents.svc.cluster.local:8080/mcp"
+  # The reviewer, reached the same way, arriving as reviewer__ask. Unlike the coder
+  # this one is allowed by policy without a confirmation button: it has no write tools
+  # at all, and a review that costs a button press is a review that gets skipped.
+  # Unset would mean this deployment has no reviewer rather than a broken one.
+  MCP_REVIEWER_URL: "http://agent-reviewer.agents.svc.cluster.local:8080/mcp"
   # --- policy ---------------------------------------------------------------
   GITHUB_WRITE_MODE: "direct-push"
   CLOUDFLARE_WRITE_MODE: "approve"
