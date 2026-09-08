@@ -26,9 +26,16 @@ data:
   #
   # gpt-5.2-codex does NOT exist on this resource (404, "The API deployment for this
   # resource does not exist") — do not add it back.
-  # gpt-6-astra leads. Confirmed present on this resource: /models lists
-  # gpt-6-astra, gpt-6-astra-2026-09-03 and a -private variant.
-  MODEL_DEFAULT: "gpt-6-astra"
+  # So the value pick above is the one in the seat. astra stays in the allowlist,
+  # so /model reaches it for a job worth paying for — and its price is not
+  # published anywhere, which is its own argument against leaving it on by
+  # default.
+  #
+  # Verified before switching, on the production code path against the live
+  # 61-tool catalogue: luna returns a function_call on BOTH /chat/completions and
+  # /responses. So unlike astra it must NOT go in MODELS_RESPONSES_API — that
+  # list is for deployments with no other option.
+  MODEL_DEFAULT: "gpt-5.6-luna"
   MODEL_ALLOWLIST: "gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,qwen3.5:0.8b"
   # Deployments that must be called on /responses rather than /chat/completions.
   #
