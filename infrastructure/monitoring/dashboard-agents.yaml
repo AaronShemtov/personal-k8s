@@ -434,6 +434,381 @@ data:
             "overrides": []
           },
           "description": ""
+        },
+        {
+          "type": "timeseries",
+          "title": "Throttled by Azure — requests by status code",
+          "description": "The one thing the platform cannot see about itself: a 429 is refused before our code counts a turn. 28 of them in the seven days to 2026-09-09, against 381 successes — so the quota does bind, occasionally, which contradicts the assumption that a single user never reaches it.",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "azuremonitor"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-azure-monitor-datasource",
+                "uid": "azuremonitor"
+              },
+              "queryType": "Azure Monitor",
+              "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "AzureOpenAIRequests",
+                "aggregation": "Total",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+                    "resourceGroup": "ai-agent-resource-group",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts",
+                    "resourceName": "ai-agent-support"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "StatusCode",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "sum"
+              ]
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Input tokens per day, by deployment",
+          "description": "Cost, in the only unit Azure reports it. Input dominates the bill at roughly 200:1 against output here, so this panel IS the spend chart once the rates are applied: sol $5.00, terra $2.00, luna $0.20, 5.3-codex $1.75, 5.1-codex-max $1.25 per 1M input. astra has no published price.\n\nDaily rather than summed on purpose. The bill is not a steady drip — in the nine days to 2026-09-09 two days carried nearly all of it (16.1M on 08-31 and 43.1M on 09-05, both on sol, about $215 for the second alone) while ordinary days cost cents. A total would have hidden that.",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "azuremonitor"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 36,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-azure-monitor-datasource",
+                "uid": "azuremonitor"
+              },
+              "queryType": "Azure Monitor",
+              "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "InputTokens",
+                "aggregation": "Total",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+                    "resourceGroup": "ai-agent-resource-group",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts",
+                    "resourceName": "ai-agent-support"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ModelDeploymentName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "sum"
+              ]
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Output tokens per day, by deployment",
+          "description": "Priced five to six times higher than input per token, but small enough here that it rarely decides the bill. Worth watching for the reverse case: a reasoning model spends output tokens invisibly, so a model whose output climbs without its input moving is thinking, not answering.",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "azuremonitor"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 44,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-azure-monitor-datasource",
+                "uid": "azuremonitor"
+              },
+              "queryType": "Azure Monitor",
+              "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "OutputTokens",
+                "aggregation": "Total",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+                    "resourceGroup": "ai-agent-resource-group",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts",
+                    "resourceName": "ai-agent-support"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ModelDeploymentName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "sum"
+              ]
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Cached input, as Azure counts it",
+          "description": "A disagreement detector, not a metric to trust yet. The API's own usage field reports cache hits of 95-97% on a multi-step turn, and the agents' billable-token maths depends on that being true — while this metric read zero across every deployment for the seven days to 2026-09-09.\n\nOne of the two is wrong, and which one matters: if the API is right the cost estimate above is an upper bound, and if this is right the estimate is what you actually pay. Do not read a flat zero here as 'caching is off' until the metric is known to be emitted for these deployments.",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "azuremonitor"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 44,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-azure-monitor-datasource",
+                "uid": "azuremonitor"
+              },
+              "queryType": "Azure Monitor",
+              "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "cacheReadInputTokens",
+                "aggregation": "Total",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+                    "resourceGroup": "ai-agent-resource-group",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts",
+                    "resourceName": "ai-agent-support"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ModelDeploymentName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "sum"
+              ]
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Latency as Azure measures it, by API surface",
+          "description": "Azure's own latency, which is the half our metrics cannot isolate: agent_inference_duration covers the whole call, so a slow model and a slow network look identical in it.\n\nSplit by API surface rather than by deployment, and measured with Latency rather than the more precise NormalizedTimeToFirstToken or TimeToResponse. Those two are only emitted for streaming requests, which these agents do not make — asked for seven days they returned no series at all, and a permanently empty panel reads as 'no latency problem' rather than 'no data'. This split also separates /chat/completions from /responses, which is where luna and the codex family now differ.",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "azuremonitor"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 52,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-azure-monitor-datasource",
+                "uid": "azuremonitor"
+              },
+              "queryType": "Azure Monitor",
+              "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "Latency",
+                "aggregation": "Average",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+                    "resourceGroup": "ai-agent-resource-group",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts",
+                    "resourceName": "ai-agent-support"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ApiName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "mean"
+              ]
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Refused by the content filter",
+          "description": "Blocked before the model saw it. Distinct from the errors panel above: our loop records this as a failed call with no explanation, because the refusal happens on Azure's side of the API and the reason does not come back in a form the client can log.",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "azuremonitor"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 52,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-azure-monitor-datasource",
+                "uid": "azuremonitor"
+              },
+              "queryType": "Azure Monitor",
+              "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "BlockedCalls",
+                "aggregation": "Total",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "7839dddb-f816-4f74-96c9-87868efc36b6",
+                    "resourceGroup": "ai-agent-resource-group",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts",
+                    "resourceName": "ai-agent-support"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ApiName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          }
         }
       ]
     }
