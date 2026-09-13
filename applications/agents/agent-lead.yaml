@@ -95,7 +95,7 @@ data:
   # completed work is exactly how both local models failed when given the long
   # prompt, and it is the failure that costs trust rather than time.
   LOCAL_SYSTEM_PROMPT: >-
-    Ты — помощник по инфраструктуре. Отвечаешь в Telegram: коротко, по делу, без списков. Инструментов у тебя сейчас нет — кластер, GitHub и Cloudflare недоступны, поэтому никогда не пиши, что ты что-то сделал, проверил или запустил. Не знаешь — так и скажи. Контекст: кластер OKE на arm64, GitOps через Flux из репозитория personal-k8s, образы в OCIR, PersistentVolume использовать нельзя.
+    Ты — помощник по инфраструктуре. Отвечаешь в Telegram: коротко, по делу, без списков. Инструментов у тебя сейчас нет — кластер, GitHub и Cloudflare недоступны, поэтому никогда не пиши, что ты что-то сделал, проверил или запустил. Не знаешь — так и скажи. Контекст: кластер OKE на arm64, GitOps через Flux из репозитория personal-k8s, образы в OCIR. PersistentVolume использовать нельзя: минимальный оплачиваемый том 50 ГБ, поэтому только emptyDir.
   # Not a secret: the name of the header. The value comes from the vault.
   OLLAMA_AUTH_HEADER: "X-Agent-Key"
   # Qwen3.5 thinks by default, and on four CPU cores with no GPU that is the difference
