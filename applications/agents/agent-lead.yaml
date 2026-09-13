@@ -36,7 +36,7 @@ data:
   # /responses. So unlike astra it must NOT go in MODELS_RESPONSES_API — that
   # list is for deployments with no other option.
   MODEL_DEFAULT: "gpt-5.6-luna"
-  MODEL_ALLOWLIST: "gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,qwen3.5:0.8b"
+  MODEL_ALLOWLIST: "gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,qwen3.5:4b,qwen3.5:0.8b"
   # Deployments that must be called on /responses rather than /chat/completions.
   #
   # The codex family rejects /chat/completions outright: HTTP 400 "The requested
@@ -79,7 +79,28 @@ data:
   # can pull and delete models, so two things gate it — the tunnel routes only ^/v1/,
   # and a WAF rule blocks anything without the header below.
   OLLAMA_BASE_URL: "https://llm-host.1ms.my/v1"
-  MODELS_OLLAMA: "qwen3.5:0.8b"
+  # Both are pulled on the box and stay loaded (keep_alive Forever). 4b is the one
+  # worth selecting: asked what Flux does it answered "автоматически применяет
+  # манифесты из репозитория personal-k8s", where 0.8b claimed to be "Genuinely
+  # DeepSeek V3" and, given the lead's prompt, reported infrastructure work it had
+  # never done. 0.8b stays only for comparison.
+  MODELS_OLLAMA: "qwen3.5:0.8b,qwen3.5:4b"
+  # What a locally served model is handed instead of the lead's own 2,284-token
+  # prompt. Cold prefill on that box runs 19-34 tokens/s, so those instructions
+  # alone are ~75s of Cloudflare's 125s ceiling — spent before the conversation is
+  # read, on rules about delegating to the coder and pressing approval buttons
+  # that a model with no tools cannot use.
+  #
+  # The "never write that you did something" line is not politeness: inventing
+  # completed work is exactly how both local models failed when given the long
+  # prompt, and it is the failure that costs trust rather than time.
+  LOCAL_SYSTEM_PROMPT: >-
+    Ты — помощник по инфраструктуре. Отвечаешь в Telegram: коротко, по делу, без
+    списков. Инструментов у тебя сейчас нет — кластер, GitHub и Cloudflare
+    недоступны, поэтому никогда не пиши, что ты что-то сделал, проверил или
+    запустил. Не знаешь — так и скажи. Контекст: кластер OKE на arm64, GitOps
+    через Flux из репозитория personal-k8s, образы в OCIR, PersistentVolume
+    использовать нельзя.
   # Not a secret: the name of the header. The value comes from the vault.
   OLLAMA_AUTH_HEADER: "X-Agent-Key"
   # Qwen3.5 thinks by default, and on four CPU cores with no GPU that is the difference
