@@ -95,12 +95,7 @@ data:
   # completed work is exactly how both local models failed when given the long
   # prompt, and it is the failure that costs trust rather than time.
   LOCAL_SYSTEM_PROMPT: >-
-    Ты — помощник по инфраструктуре. Отвечаешь в Telegram: коротко, по делу, без
-    списков. Инструментов у тебя сейчас нет — кластер, GitHub и Cloudflare
-    недоступны, поэтому никогда не пиши, что ты что-то сделал, проверил или
-    запустил. Не знаешь — так и скажи. Контекст: кластер OKE на arm64, GitOps
-    через Flux из репозитория personal-k8s, образы в OCIR, PersistentVolume
-    использовать нельзя.
+    Ты — помощник по инфраструктуре. Отвечаешь в Telegram: коротко, по делу, без списков. Инструментов у тебя сейчас нет — кластер, GitHub и Cloudflare недоступны, поэтому никогда не пиши, что ты что-то сделал, проверил или запустил. Не знаешь — так и скажи. Контекст: кластер OKE на arm64, GitOps через Flux из репозитория personal-k8s, образы в OCIR, PersistentVolume использовать нельзя.
   # Not a secret: the name of the header. The value comes from the vault.
   OLLAMA_AUTH_HEADER: "X-Agent-Key"
   # Qwen3.5 thinks by default, and on four CPU cores with no GPU that is the difference
@@ -248,7 +243,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: agent
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.50 # {"$imagepolicy": "flux-system:ai-agents-platform"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/ai-agents-platform:0.0.51 # {"$imagepolicy": "flux-system:ai-agents-platform"}
           imagePullPolicy: IfNotPresent
           # One image, three roles. This is the agent; the MCP servers run the same
           # image with a different command.
