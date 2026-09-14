@@ -48,7 +48,7 @@ data:
   # more input tokens for the identical request, which at luna's $0.20 per 1M
   # with 99% cached is not worth an argument.
   MODEL_DEFAULT: "gpt-5.6-luna"
-  MODEL_ALLOWLIST: "gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,qwen3.5:4b,qwen3.5:0.8b"
+  MODEL_ALLOWLIST: "gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-IQ4_XS"
   # Deployments that must be called on /responses rather than /chat/completions.
   #
   # The codex family rejects /chat/completions outright: HTTP 400 "The requested
@@ -91,12 +91,19 @@ data:
   # can pull and delete models, so two things gate it — the tunnel routes only ^/v1/,
   # and a WAF rule blocks anything without the header below.
   OLLAMA_BASE_URL: "https://llm-host.1ms.my/v1"
-  # Both are pulled on the box and stay loaded (keep_alive Forever). 4b is the one
-  # worth selecting: asked what Flux does it answered "автоматически применяет
-  # манифесты из репозитория personal-k8s", where 0.8b claimed to be "Genuinely
-  # DeepSeek V3" and, given the lead's prompt, reported infrastructure work it had
-  # never done. 0.8b stays only for comparison.
-  MODELS_OLLAMA: "qwen3.5:0.8b,qwen3.5:4b"
+  # One model, because it takes the whole machine: 16.5 GB of weights out of the
+  # 21 GB free once the qwen3.5 pair was removed. A3B is a mixture of experts —
+  # 3B active per token — so it costs a 3B model's compute at a 35B model's
+  # quality, which is the right trade on four CPU cores with no GPU.
+  #
+  # The pair it replaced: 4b answered correctly but loosely, 0.8b called itself
+  # "Genuinely DeepSeek V3" and, handed the lead's prompt, reported
+  # infrastructure work it had never done. Neither is worth 1.8-4.7 GB now.
+  #
+  # Context on the box is 8192, not the 32768 it shipped with: KV cache is
+  # allocated for the whole context and for every parallel slot, and this agent
+  # never sends more than LOCAL_MAX_TOKENS.
+  MODELS_OLLAMA: "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-IQ4_XS"
   # What a locally served model is handed instead of the lead's own 2,284-token
   # prompt. Cold prefill on that box runs 19-34 tokens/s, so those instructions
   # alone are ~75s of Cloudflare's 125s ceiling — spent before the conversation is
