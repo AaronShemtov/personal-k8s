@@ -122,6 +122,19 @@ data:
   # 58s for a one-sentence answer with thinking on. reasoning_effort is the only lever
   # Ollama honours over /v1; `think: false` works only on its native /api/chat.
   OLLAMA_REASONING_EFFORT: "none"
+  # Measured on the box with the model above, cold prefill with a cache-missing
+  # prefix: 521 tokens took 34.9s, 1,521 took 103.3s, 3,521 took 246.6s — a flat
+  # 15 tokens per second. Slower than the 4b it replaced (19-34), because prefill
+  # runs as a batch and a mixture of experts saves nothing there: the "3B active"
+  # advantage is real for writing one token at a time, not for reading a prompt.
+  #
+  # Cloudflare abandons a request at 125s, and the expensive turn — the one where
+  # the window slides and everything is re-read — has to fit with its answer
+  # inside that. 1,000 tokens is ~67s of reading plus ~10s of writing.
+  #
+  # Generation is 6-10s a turn, the same as the 4b, which is the half of the MoE
+  # promise that did arrive.
+  LOCAL_MAX_TOKENS: "1000"
   # --- Telegram -------------------------------------------------------------
   # Comma-separated numeric Telegram user IDs. Not a secret — it is an allow-list.
   # Fail-closed: if this is empty the bot refuses everyone, including you.
