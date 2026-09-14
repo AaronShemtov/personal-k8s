@@ -33,8 +33,20 @@ data:
   #
   # Verified before switching, on the production code path against the live
   # 61-tool catalogue: luna returns a function_call on BOTH /chat/completions and
-  # /responses. So unlike astra it must NOT go in MODELS_RESPONSES_API — that
-  # list is for deployments with no other option.
+  # /responses.
+  #
+  # It is in MODELS_RESPONSES_API anyway, and the earlier note here saying it
+  # must NOT be was wrong. That list is not only "deployments with no other
+  # option": HOSTED_TOOLS exists solely on /responses, so a model routed to
+  # /chat/completions silently loses web access. Moving the default from astra to
+  # luna took the agent's internet away without a single error — it simply
+  # started answering from memory, which for a famous page looks right and for a
+  # news article is a fabrication.
+  #
+  # Measured, so the cost of the move is known: caching survives it. The same
+  # prompt twice gives 99% cached on both paths; /responses charges about a third
+  # more input tokens for the identical request, which at luna's $0.20 per 1M
+  # with 99% cached is not worth an argument.
   MODEL_DEFAULT: "gpt-5.6-luna"
   MODEL_ALLOWLIST: "gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,qwen3.5:4b,qwen3.5:0.8b"
   # Deployments that must be called on /responses rather than /chat/completions.
@@ -60,14 +72,14 @@ data:
   # Dockerfile task gpt-5.3-codex answered in 4.0s against 31.8s for gpt-5.6-sol,
   # got the read-only root filesystem right, and volunteered a /healthz endpoint
   # nobody asked for.
-  MODELS_RESPONSES_API: "gpt-6-astra,gpt-5.3-codex,gpt-5.1-codex-max"
+  MODELS_RESPONSES_API: "gpt-6-astra,gpt-5.6-luna,gpt-5.3-codex,gpt-5.1-codex-max"
   # Tools Azure runs on its own side. web_search_preview is what lets the agent
   # read a page on the open internet — nothing in our own tool set can, so before
   # this "проверь вот эту страницу" was a request it could only decline.
   #
   # It does not appear in the tool catalogue and the loop never dispatches it:
   # Azure performs the search and returns its own output items. Only reaches
-  # /responses models, which is every model above.
+  # /responses models — which is why the default has to be one of them.
   #
   # Verified against this resource: asked for the H1 of example.com it answered
   # "Example Domain"; asked what 1ms.my is, it read the page.
