@@ -1,0 +1,55 @@
+---
+# Scrape the Flux controllers. Until this existed nobody scraped Flux at all: the
+# controllers carry prometheus.io/scrape annotations, but the Prometheus Operator ignores
+# annotations, and neither the kube-prometheus-stack chart nor this repo shipped a
+# ServiceMonitor or PodMonitor for flux-system. That left the GitOps — Flux dashboard empty.
+#
+# This is the PodMonitor from Flux's own monitoring setup (fluxcd/flux2-monitoring-example,
+# monitoring/configs/podmonitor.yaml). It is a PodMonitor rather than a ServiceMonitor
+# because only source-controller and notification-controller sit behind Services, and those
+# expose port 80 only, not the metrics port. Every controller Pod names that port
+# `http-prom` (:8080).
+#
+# What it provides: gotk_reconcile_duration_seconds{kind,name,exported_namespace}, plus the
+# controller-runtime, workqueue, REST-client and Go runtime metrics. That is about 2,900
+# series across the six controllers (Prometheus holds about 37k). The object's own
+# `namespace` label collides with the target's `namespace` (always flux-system), so
+# Prometheus renames it `exported_namespace`. gotk_resource_info from kube-state-metrics
+# uses the same name, so the two can be joined.
+#
+# Resource state (Ready, suspended, revision) does not come from here: Flux v2 dropped
+# gotk_reconcile_condition, and kube-state-metrics now exports that state as
+# gotk_resource_info. See the kube-state-metrics section of kube-prometheus-stack.yaml.
+#
+# Prometheus selects every PodMonitor in every namespace (podMonitorSelector: {} in
+# kube-prometheus-stack.yaml), so this one needs no special labels. The flux-system
+# NetworkPolicy `allow-scraping` already lets any namespace in on :8080.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: flux-system
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: flux
+    app.kubernetes.io/component: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - flux-system
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - helm-controller
+          - source-controller
+          - kustomize-controller
+          - notification-controller
+          - image-automation-controller
+          - image-reflector-controller
+  podMetricsEndpoints:
+    - port: http-prom
+      path: /metrics
+      # Same interval as every other target here, so rate() windows line up.
+      interval: 30s
+      scrapeTimeout: 10s

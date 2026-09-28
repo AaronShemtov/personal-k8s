@@ -183,11 +183,11 @@ data:
         },
         {
           "type": "stat",
-          "title": "CV — Pods",
+          "title": "About Me — Pods",
           "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum(kube_pod_status_phase{namespace='cv',phase='Running'})",
+            "expr": "sum(kube_pod_status_phase{namespace='aboutme',phase='Running'})",
             "refId": "A"
           }]
         },
@@ -212,12 +212,42 @@ data:
           }]
         },
         {
-          "type": "timeseries",
-          "title": "CPU Usage by Application Pod",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "type": "stat",
+          "title": "My IP — Pods",
+          "gridPos": { "h": 4, "w": 8, "x": 0, "y": 4 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~'urlshortener|cv|infra|pwd',container!=''}[5m]))",
+            "expr": "sum(kube_pod_status_phase{namespace='myip',phase='Running'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "stat",
+          "title": "AI Agents — Pods",
+          "gridPos": { "h": 4, "w": 8, "x": 8, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_phase{namespace='agents',phase='Running'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "stat",
+          "title": "AI SRE Agent — Pods",
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum(kube_pod_status_phase{namespace='ai-sre-agent',phase='Running'})",
+            "refId": "A"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "CPU Usage by Application Pod",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~'urlshortener|aboutme|infra|pwd|myip|agents|ai-sre-agent',container!=''}[5m]))",
             "legendFormat": "{{namespace}}/{{pod}}",
             "refId": "A"
           }],
@@ -226,10 +256,10 @@ data:
         {
           "type": "timeseries",
           "title": "Memory Usage by Application Pod",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~'urlshortener|cv|infra|pwd',container!=''})",
+            "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~'urlshortener|aboutme|infra|pwd|myip|agents|ai-sre-agent',container!=''})",
             "legendFormat": "{{namespace}}/{{pod}}",
             "refId": "A"
           }],
@@ -238,10 +268,10 @@ data:
         {
           "type": "timeseries",
           "title": "Network RX by Application Pod",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum by (namespace, pod) (rate(container_network_receive_bytes_total{namespace=~'urlshortener|cv|infra|pwd'}[5m]))",
+            "expr": "sum by (namespace, pod) (rate(container_network_receive_bytes_total{namespace=~'urlshortener|aboutme|infra|pwd|myip|agents|ai-sre-agent'}[5m]))",
             "legendFormat": "{{namespace}}/{{pod}}",
             "refId": "A"
           }],
@@ -250,10 +280,10 @@ data:
         {
           "type": "timeseries",
           "title": "Network TX by Application Pod",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum by (namespace, pod) (rate(container_network_transmit_bytes_total{namespace=~'urlshortener|cv|infra|pwd'}[5m]))",
+            "expr": "sum by (namespace, pod) (rate(container_network_transmit_bytes_total{namespace=~'urlshortener|aboutme|infra|pwd|myip|agents|ai-sre-agent'}[5m]))",
             "legendFormat": "{{namespace}}/{{pod}}",
             "refId": "A"
           }],
@@ -351,6 +381,13 @@ data:
 # ============================================================================
 # 4. GITOPS — Flux reconciliation health
 # ============================================================================
+# Two data sources, both set up the way Flux documents it (fluxcd/flux2-monitoring-example):
+#   * gotk_resource_info: object state (Ready, suspended, revision), one series per
+#     Flux object. kube-state-metrics exports it from the Flux custom resources
+#     (customResourceState in kube-prometheus-stack.yaml). This replaces
+#     gotk_reconcile_condition, which Flux v2 no longer exports.
+#   * gotk_reconcile_duration_seconds: reconcile timing, scraped from the controllers
+#     by the PodMonitor in flux-podmonitor.yaml.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -368,20 +405,22 @@ data:
         {
           "type": "stat",
           "title": "Kustomizations — Ready",
+          "description": "Kustomizations whose Ready condition is True. Source: gotk_resource_info from kube-state-metrics.",
           "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum(gotk_reconcile_condition{kind='Kustomization',type='Ready',status='True'})",
+            "expr": "count(gotk_resource_info{customresource_kind='Kustomization',ready='True'}) or (0 * count(gotk_resource_info{customresource_kind='Kustomization'}))",
             "refId": "A"
           }]
         },
         {
           "type": "stat",
           "title": "Kustomizations — NOT Ready",
+          "description": "Kustomizations whose Ready condition is not True: False, Unknown, or not reported yet. Source: gotk_resource_info from kube-state-metrics.",
           "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum(gotk_reconcile_condition{kind='Kustomization',type='Ready',status='False'})",
+            "expr": "count(gotk_resource_info{customresource_kind='Kustomization',ready!='True'}) or (0 * count(gotk_resource_info{customresource_kind='Kustomization'}))",
             "refId": "A"
           }],
           "fieldConfig": {
@@ -398,20 +437,22 @@ data:
         {
           "type": "stat",
           "title": "HelmReleases — Ready",
+          "description": "HelmReleases whose Ready condition is True. Source: gotk_resource_info from kube-state-metrics.",
           "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum(gotk_reconcile_condition{kind='HelmRelease',type='Ready',status='True'})",
+            "expr": "count(gotk_resource_info{customresource_kind='HelmRelease',ready='True'}) or (0 * count(gotk_resource_info{customresource_kind='HelmRelease'}))",
             "refId": "A"
           }]
         },
         {
           "type": "stat",
           "title": "HelmReleases — NOT Ready",
+          "description": "HelmReleases whose Ready condition is not True: False, Unknown, or not reported yet. Source: gotk_resource_info from kube-state-metrics.",
           "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum(gotk_reconcile_condition{kind='HelmRelease',type='Ready',status='False'})",
+            "expr": "count(gotk_resource_info{customresource_kind='HelmRelease',ready!='True'}) or (0 * count(gotk_resource_info{customresource_kind='HelmRelease'}))",
             "refId": "A"
           }],
           "fieldConfig": {
@@ -428,10 +469,11 @@ data:
         {
           "type": "table",
           "title": "Reconciliation status — all Flux objects",
+          "description": "One row per Flux object, from gotk_resource_info (kube-state-metrics). Ready is the object's Ready condition. It is blank for Alerts and Providers, which have no Ready condition, and for OCI HelmRepositories, which Flux does not reconcile. Suspended is blank unless spec.suspend is set.",
           "gridPos": { "h": 12, "w": 24, "x": 0, "y": 4 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "gotk_reconcile_condition{type='Ready'}",
+            "expr": "max by (customresource_kind, exported_namespace, name, ready, suspended, revision) (gotk_resource_info)",
             "format": "table",
             "instant": true,
             "refId": "A"
@@ -440,19 +482,44 @@ data:
             {
               "id": "organize",
               "options": {
-                "excludeByName": { "__name__": true, "instance": true, "job": true, "Time": true, "endpoint": true, "service": true, "container": true, "pod": true, "Value": false },
-                "renameByName": { "kind": "Kind", "name": "Name", "namespace": "Namespace", "status": "Ready" }
+                "excludeByName": { "Time": true, "Value": true },
+                "indexByName": { "customresource_kind": 0, "exported_namespace": 1, "name": 2, "ready": 3, "suspended": 4, "revision": 5 },
+                "renameByName": { "customresource_kind": "Kind", "exported_namespace": "Namespace", "name": "Name", "ready": "Ready", "suspended": "Suspended", "revision": "Revision" }
               }
             }
-          ]
+          ],
+          "options": {
+            "showHeader": true,
+            "sortBy": [{ "displayName": "Kind", "desc": false }]
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Ready" },
+                "properties": [
+                  { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+                  { "id": "mappings", "value": [{
+                    "type": "value",
+                    "options": {
+                      "True": { "text": "True", "color": "green", "index": 0 },
+                      "False": { "text": "False", "color": "red", "index": 1 },
+                      "Unknown": { "text": "Unknown", "color": "orange", "index": 2 }
+                    }
+                  }] }
+                ]
+              }
+            ]
+          }
         },
         {
           "type": "timeseries",
-          "title": "Reconciliation duration (p95)",
+          "title": "Reconciliation duration by kind (p95, 1h window)",
+          "description": "95th percentile of gotk_reconcile_duration_seconds, scraped from the Flux controllers by the flux-system PodMonitor. The window is 1h because HelmReleases, HelmCharts and HelmRepositories reconcile every 30m to 24h, so a 5m window leaves those kinds empty most of the time.",
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "histogram_quantile(0.95, sum by (kind, le) (rate(gotk_reconcile_duration_seconds_bucket[5m])))",
+            "expr": "histogram_quantile(0.95, sum by (kind, le) (rate(gotk_reconcile_duration_seconds_bucket[1h])))",
             "legendFormat": "{{kind}}",
             "refId": "A"
           }],
@@ -460,14 +527,16 @@ data:
         },
         {
           "type": "timeseries",
-          "title": "Image Automation activity",
+          "title": "Image automation — reconciles per hour",
+          "description": "Reconciliations per hour of each ImageRepository, ImagePolicy and ImageUpdateAutomation, from gotk_reconcile_duration_seconds_count.",
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "sum by (kind, name) (rate(gotk_reconcile_duration_seconds_count{kind=~'ImageRepository|ImagePolicy|ImageUpdateAutomation'}[5m]))",
+            "expr": "sum by (kind, name) (increase(gotk_reconcile_duration_seconds_count{kind=~'ImageRepository|ImagePolicy|ImageUpdateAutomation'}[1h]))",
             "legendFormat": "{{kind}}/{{name}}",
             "refId": "A"
-          }]
+          }],
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 } }
         }
       ],
       "refresh": "30s",
