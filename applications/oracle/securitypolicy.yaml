@@ -1,0 +1,24 @@
+---
+# HTTP basic auth for oracle.1ms.my, enforced by Envoy Gateway on the route.
+#
+# Envoy answers 401 with a WWW-Authenticate challenge until the browser sends
+# credentials that match the htpasswd in the Secret (see
+# basic-auth-externalsecret.yaml). Only this route is covered; the other sites
+# on the same Gateway are not affected. The kubelet probes /healthz on the pods
+# directly, not through Envoy, so they need no credentials.
+#
+# TLS ends at Cloudflare, and from there the request travels inside the
+# encrypted tunnel, so the credentials never cross the internet in clear text.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: oracle-basic-auth
+  namespace: oracle
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: oracle
+  basicAuth:
+    users:
+      name: oracle-basic-auth
