@@ -102,6 +102,31 @@ spec:
     semver:
       range: '>=0.0.0'
 ---
+# oracle.1ms.my — OCI experience presentation (github.com/AaronShemtov/OCI).
+# The repo is named OCI, but image names must be lowercase, hence oracle-frontend.
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: oracle-frontend
+  namespace: flux-system
+spec:
+  image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/oracle-frontend
+  interval: 2m
+  secretRef:
+    name: ocir-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: oracle-frontend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: oracle-frontend
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
 # pwd.1ms.my — password generator static site.
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository

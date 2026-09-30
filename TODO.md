@@ -35,16 +35,6 @@ the console. Confirm it, because the margin is roughly 2× and not 20×.
 and `storage.type: s3` in `loki.yaml` pointing at the S3-compatible endpoint. The
 `loki.yaml` header already anticipated this as "a Phase 2 concern".
 
-## Decide what to do with `hopa`
-
-Three replicas of plain `nginx` in the `default` namespace, created 2026-07-19 with
-`kubectl apply`, no Service, no route, no resource requests, and **not in this
-repository** — so Flux does not know it exists. It serves the default nginx page to
-nobody and costs 3 Mi per pod.
-
-Either delete it or bring it into git. Untracked workloads in a GitOps cluster are how
-you end up afraid to reconcile.
-
 ## Consider `TRACE_CONTENT` for the agents — but decide the Grafana question first
 
 Full request/response tracing would make the agents' behaviour debuggable: today the
