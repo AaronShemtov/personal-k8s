@@ -1,9 +1,11 @@
-# oracle-frontend serves oracle.1ms.my — the presentation of OCI experience,
-# built from github.com/AaronShemtov/OCI. A placeholder page for now.
+# oracle-frontend serves oracle.1ms.my, built from github.com/AaronShemtov/OCI
+# (a private repository: it holds the page's material).
 #
-# No backend, no DB, no secrets: nginx-unprivileged serving the static files
-# baked into the image. Each push to the repo triggers a GitHub Actions build;
-# Flux Image Automation then bumps the tag below.
+# No backend and no database: nginx-unprivileged serving the static files baked into
+# the image. The site is behind basic auth, enforced by Envoy Gateway before a request
+# gets here (securitypolicy.yaml), with the password from OCI Vault; the pod itself holds
+# no secret. Each push to the repo triggers a GitHub Actions build; Flux Image
+# Automation then bumps the tag below.
 #
 # Same shape as infra-frontend: a small footprint, and two replicas so a
 # rolling update never leaves the site without a ready pod.
