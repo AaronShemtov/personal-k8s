@@ -18,8 +18,11 @@ data:
   # model that exists, and it has to be listed in MODELS_RESPONSES_API if it is one of
   # the codex pair — that list is how the client decides which endpoint to call.
   MODEL_DEFAULT: "gpt-5.3-codex"
-  MODEL_ALLOWLIST: "gpt-5.3-codex,gpt-5.1-codex-max,gpt-5.6-sol"
-  MODELS_RESPONSES_API: "gpt-5.3-codex,gpt-5.1-codex-max"
+  # gpt-6.1-sol and gpt-6-luna added 2026-10-06, the pair already on the lead and checked
+  # from its pod against the same endpoint and key. Nothing here reads MODEL_ALLOWLIST
+  # yet: only the lead's /model does, and this agent's model comes from its profile.
+  MODEL_ALLOWLIST: "gpt-5.3-codex,gpt-5.1-codex-max,gpt-5.6-sol,gpt-6.1-sol,gpt-6-luna"
+  MODELS_RESPONSES_API: "gpt-5.3-codex,gpt-5.1-codex-max,gpt-6.1-sol,gpt-6-luna"
   # No MCP_CLOUDFLARE_URL on purpose: Cloudflare's write mode is `approve`, and there is
   # nobody here to press the button, so every mutating call would be refused anyway. DNS
   # and tunnels stay with the agent that can ask.

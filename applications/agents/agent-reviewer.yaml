@@ -27,8 +27,11 @@ data:
   # reads a diff instead of generating a repository — so there is nothing to save here
   # by picking a weaker model, and a missed defect reaches the cluster in ten minutes.
   MODEL_DEFAULT: "gpt-5.1-codex-max"
-  MODEL_ALLOWLIST: "gpt-5.1-codex-max,gpt-5.3-codex,gpt-6-astra"
-  MODELS_RESPONSES_API: "gpt-5.1-codex-max,gpt-5.3-codex,gpt-6-astra"
+  # gpt-6.1-sol and gpt-6-luna added 2026-10-06, as on the coder: the lead's pair, checked
+  # from its pod against the same endpoint and key. MODEL_ALLOWLIST is not read here yet;
+  # the profile decides this agent's model.
+  MODEL_ALLOWLIST: "gpt-5.1-codex-max,gpt-5.3-codex,gpt-6-astra,gpt-6.1-sol,gpt-6-luna"
+  MODELS_RESPONSES_API: "gpt-5.1-codex-max,gpt-5.3-codex,gpt-6-astra,gpt-6.1-sol,gpt-6-luna"
   # No Cloudflare and no coder: this agent reviews, it does not delegate and it does
   # not change DNS. Cluster access is read-only by the mcp-cluster ClusterRole, and it
   # is here so a manifest can be checked against what is actually running.
