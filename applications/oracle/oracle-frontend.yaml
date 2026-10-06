@@ -54,7 +54,7 @@ spec:
         - name: nginx
           # Flux Image Automation rewrites this tag on every new OCIR push
           # matching the semver policy `>=0.0.0`.
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/oracle-frontend:0.0.62 # {"$imagepolicy": "flux-system:oracle-frontend"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/oracle-frontend:0.0.63 # {"$imagepolicy": "flux-system:oracle-frontend"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
