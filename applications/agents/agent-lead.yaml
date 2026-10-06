@@ -48,7 +48,11 @@ data:
   # more input tokens for the identical request, which at luna's $0.20 per 1M
   # with 99% cached is not worth an argument.
   MODEL_DEFAULT: "gpt-5.6-luna"
-  MODEL_ALLOWLIST: "gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-IQ4_XS"
+  # gpt-6.1-sol and gpt-6-luna added 2026-10-06, verified the same way from this pod:
+  # each returned a function_call get_weather {"city":"Paris"} on /responses and
+  # answered on /chat/completions. Both are in MODELS_RESPONSES_API below, so they
+  # keep the hosted web search.
+  MODEL_ALLOWLIST: "gpt-6.1-sol,gpt-6-astra,gpt-6-luna,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-nano,gpt-5.3-codex,gpt-5.1-codex-max,hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-IQ4_XS"
   # Deployments that must be called on /responses rather than /chat/completions.
   #
   # The codex family rejects /chat/completions outright: HTTP 400 "The requested
@@ -72,7 +76,7 @@ data:
   # Dockerfile task gpt-5.3-codex answered in 4.0s against 31.8s for gpt-5.6-sol,
   # got the read-only root filesystem right, and volunteered a /healthz endpoint
   # nobody asked for.
-  MODELS_RESPONSES_API: "gpt-6-astra,gpt-5.6-luna,gpt-5.3-codex,gpt-5.1-codex-max"
+  MODELS_RESPONSES_API: "gpt-6.1-sol,gpt-6-astra,gpt-6-luna,gpt-5.6-luna,gpt-5.3-codex,gpt-5.1-codex-max"
   # Tools Azure runs on its own side. web_search_preview is what lets the agent
   # read a page on the open internet — nothing in our own tool set can, so before
   # this "проверь вот эту страницу" was a request it could only decline.
