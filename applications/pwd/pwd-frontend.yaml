@@ -15,7 +15,7 @@ metadata:
   labels:
     app: pwd-frontend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: pwd-frontend
