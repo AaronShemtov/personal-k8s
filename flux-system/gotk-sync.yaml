@@ -21,10 +21,7 @@ metadata:
 spec:
   interval: 1m0s
   path: ./
-  # Temporarily off: the next commit narrows this Kustomization to Flux
-  # itself, and with pruning on that would delete every app object it
-  # applied too. Turned back on in the same commit as the narrowing.
-  prune: false
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
