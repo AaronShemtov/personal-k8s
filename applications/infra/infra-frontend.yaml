@@ -15,7 +15,7 @@ metadata:
   labels:
     app: infra-frontend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: infra-frontend

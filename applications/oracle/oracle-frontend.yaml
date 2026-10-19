@@ -17,7 +17,7 @@ metadata:
   labels:
     app: oracle-frontend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: oracle-frontend
