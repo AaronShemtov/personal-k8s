@@ -1,0 +1,23 @@
+# news: the Dagster pipeline from github.com/AaronShemtov/news-digest. It reads news
+# feeds, stores articles in ADB (schema NEWS) and sends a daily digest to Telegram.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: news
+  labels:
+    app.kubernetes.io/name: news
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: news
+  namespace: news
+# The pipeline never calls the Kubernetes API; the Deployment also turns off token
+# mounting.
+automountServiceAccountToken: false
+imagePullSecrets:
+  - name: ocir-pull-secret
