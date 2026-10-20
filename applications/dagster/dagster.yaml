@@ -1,0 +1,165 @@
+# Dagster in one pod: the webserver (UI) and the daemon (schedules, sensors, the run
+# queue) share an emptyDir that holds the instance's SQLite storage. Runs execute in
+# the daemon container, so a run costs no extra pod. Recreate, not RollingUpdate: two
+# pods must never write one SQLite store, and a new pod starts with a fresh one anyway.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dagster
+  namespace: dagster
+  labels:
+    app: dagster
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: dagster
+  template:
+    metadata:
+      labels:
+        app: dagster
+    spec:
+      serviceAccountName: dagster # carries the OCIR imagePullSecret
+      automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: name
+                    operator: In
+                    values:
+                      - apps-pool
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: webserver
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.5 # {"$imagepolicy": "flux-system:news-digest"}
+          imagePullPolicy: IfNotPresent
+          command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "news_digest.definitions"]
+          # No secrets here: runs, schedules and sensors all execute in the daemon.
+          envFrom:
+            - configMapRef:
+                name: dagster-config
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /server_info
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /server_info
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 20m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: dagster-home
+              mountPath: /var/lib/dagster
+            - name: instance
+              mountPath: /var/lib/dagster/dagster.yaml
+              subPath: dagster.yaml
+            - name: tmp
+              mountPath: /tmp
+        - name: daemon
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.5 # {"$imagepolicy": "flux-system:news-digest"}
+          imagePullPolicy: IfNotPresent
+          command: ["dagster-daemon", "run", "-m", "news_digest.definitions"]
+          envFrom:
+            - configMapRef:
+                name: dagster-config
+          env:
+            - name: ADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dagster-adb
+                  key: password
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dagster-llm
+                  key: api_key
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dagster-telegram
+                  key: token
+          livenessProbe:
+            # Fails when the daemon's heartbeats stop, i.e. schedules would stop firing.
+            exec:
+              command: ["dagster-daemon", "liveness-check"]
+            initialDelaySeconds: 180
+            periodSeconds: 120
+            timeoutSeconds: 60
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 20m
+              memory: 384Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: dagster-home
+              mountPath: /var/lib/dagster
+            - name: instance
+              mountPath: /var/lib/dagster/dagster.yaml
+              subPath: dagster.yaml
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: dagster-home
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: instance
+          configMap:
+            name: dagster-instance
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dagster-webserver
+  namespace: dagster
+  labels:
+    app: dagster
+spec:
+  selector:
+    app: dagster
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

@@ -1,0 +1,25 @@
+# dagster: Dagster, running the pipelines of github.com/AaronShemtov/news-digest (today
+# the news digest: feeds into ADB, a daily digest to Telegram). The namespace, the
+# database user (DAGSTER) and the secrets are named after Dagster, not after one
+# pipeline, so a new or reworked pipeline renames nothing here.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dagster
+  labels:
+    app.kubernetes.io/name: dagster
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dagster
+  namespace: dagster
+# The pipeline never calls the Kubernetes API; the Deployment also turns off token
+# mounting.
+automountServiceAccountToken: false
+imagePullSecrets:
+  - name: ocir-pull-secret
