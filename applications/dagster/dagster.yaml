@@ -45,7 +45,7 @@ spec:
       # one head present"), and the daemon crash-looped. Creating it first, alone, avoids that.
       initContainers:
         - name: init-storage
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.12 # {"$imagepolicy": "flux-system:news-digest"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.17 # {"$imagepolicy": "flux-system:news-digest"}
           imagePullPolicy: IfNotPresent
           command: ["dagster", "instance", "migrate"]
           resources:
@@ -70,7 +70,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: webserver
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.12 # {"$imagepolicy": "flux-system:news-digest"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.17 # {"$imagepolicy": "flux-system:news-digest"}
           imagePullPolicy: IfNotPresent
           command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "news_digest.definitions"]
           # No secrets here: runs, schedules and sensors all execute in the daemon.
@@ -117,7 +117,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: daemon
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.12 # {"$imagepolicy": "flux-system:news-digest"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.17 # {"$imagepolicy": "flux-system:news-digest"}
           imagePullPolicy: IfNotPresent
           command: ["dagster-daemon", "run", "-m", "news_digest.definitions"]
           envFrom:
