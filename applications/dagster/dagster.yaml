@@ -6,7 +6,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dagster
-  namespace: news
+  namespace: dagster
   labels:
     app: dagster
 spec:
@@ -21,7 +21,7 @@ spec:
       labels:
         app: dagster
     spec:
-      serviceAccountName: news # carries the OCIR imagePullSecret
+      serviceAccountName: dagster # carries the OCIR imagePullSecret
       automountServiceAccountToken: false
       affinity:
         nodeAffinity:
@@ -48,7 +48,7 @@ spec:
           # No secrets here: runs, schedules and sensors all execute in the daemon.
           envFrom:
             - configMapRef:
-                name: news-config
+                name: dagster-config
           ports:
             - name: http
               containerPort: 3000
@@ -94,22 +94,22 @@ spec:
           command: ["dagster-daemon", "run", "-m", "news_digest.definitions"]
           envFrom:
             - configMapRef:
-                name: news-config
+                name: dagster-config
           env:
             - name: ADB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: news-adb
+                  name: dagster-adb
                   key: password
             - name: LLM_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: news-llm
+                  name: dagster-llm
                   key: api_key
             - name: TELEGRAM_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: news-telegram
+                  name: dagster-telegram
                   key: token
           livenessProbe:
             # Fails when the daemon's heartbeats stop, i.e. schedules would stop firing.
@@ -152,7 +152,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dagster-webserver
-  namespace: news
+  namespace: dagster
   labels:
     app: dagster
 spec:

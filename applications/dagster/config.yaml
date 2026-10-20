@@ -2,11 +2,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: news-config
-  namespace: news
+  name: dagster-config
+  namespace: dagster
 data:
-  ADB_SQL_URL: "https://GB6D5BC088AFCDA-URLSHORTENERJSON.adb.il-jerusalem-1.oraclecloudapps.com/ords/news/_/sql"
-  ADB_USERNAME: "NEWS"
+  ADB_SQL_URL: "https://GB6D5BC088AFCDA-URLSHORTENERJSON.adb.il-jerusalem-1.oraclecloudapps.com/ords/dagster/_/sql"
+  ADB_USERNAME: "DAGSTER"
   LLM_BASE_URL: "https://ai-agent-support.services.ai.azure.com/openai/v1/"
   LLM_MODEL: "gpt-5.4-nano"
   # The owner's private chat with the lead bot (TELEGRAM_ALLOWED_USERS in agent-lead).
@@ -21,7 +21,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dagster-instance
-  namespace: news
+  namespace: dagster
 data:
   dagster.yaml: |
     run_coordinator:
