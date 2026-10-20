@@ -14,10 +14,10 @@ data:
   LLM_API: "responses"
   LLM_PRICE_IN: "2.0"
   LLM_PRICE_OUT: "10.0"
-  # Where the digest goes: for now the owner's private chat with the lead bot
-  # (TELEGRAM_ALLOWED_USERS in agent-lead); a public channel's "@name" later.
-  TELEGRAM_CHAT_ID: "139236889"
-  # Failure alerts always go to the owner, never to a public channel.
+  # The digest goes to the public channel t.me/dagsternews; @dagster_news_bot is its admin.
+  TELEGRAM_CHAT_ID: "@dagsternews"
+  # Failure alerts go to the owner's private chat with the bot, never to the channel. The
+  # bot can write there only once the owner has pressed Start in it.
   TELEGRAM_ALERT_CHAT_ID: "139236889"
   READER_PROFILE: "airline pricing and the aviation industry; AI and LLM tooling; Kubernetes, cloud and data engineering; Israeli tech"
   # Empty until the UI has a hostname; alerts then show the run id without a link.

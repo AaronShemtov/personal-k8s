@@ -40,6 +40,34 @@ spec:
         fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
+      # Webserver and daemon each create the SQLite storage when they find none. Started
+      # together on a fresh emptyDir they once stamped its schema twice (alembic: "more than
+      # one head present"), and the daemon crash-looped. Creating it first, alone, avoids that.
+      initContainers:
+        - name: init-storage
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.12 # {"$imagepolicy": "flux-system:news-digest"}
+          imagePullPolicy: IfNotPresent
+          command: ["dagster", "instance", "migrate"]
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: dagster-home
+              mountPath: /var/lib/dagster
+            - name: instance
+              mountPath: /var/lib/dagster/dagster.yaml
+              subPath: dagster.yaml
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: webserver
           image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.12 # {"$imagepolicy": "flux-system:news-digest"}
