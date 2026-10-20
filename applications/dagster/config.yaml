@@ -8,9 +8,17 @@ data:
   ADB_SQL_URL: "https://GB6D5BC088AFCDA-URLSHORTENERJSON.adb.il-jerusalem-1.oraclecloudapps.com/ords/dagster/_/sql"
   ADB_USERNAME: "DAGSTER"
   LLM_BASE_URL: "https://ai-agent-support.services.ai.azure.com/openai/v1/"
-  LLM_MODEL: "gpt-5.4-nano"
-  # The owner's private chat with the lead bot (TELEGRAM_ALLOWED_USERS in agent-lead).
+  # GPT-6 models on Azure are served through the Responses API only. Prices are USD per
+  # million tokens, Global Standard, read off the Azure Retail Prices API on 2026-10-21.
+  LLM_MODEL: "gpt-6.1-sol"
+  LLM_API: "responses"
+  LLM_PRICE_IN: "2.0"
+  LLM_PRICE_OUT: "10.0"
+  # Where the digest goes: for now the owner's private chat with the lead bot
+  # (TELEGRAM_ALLOWED_USERS in agent-lead); a public channel's "@name" later.
   TELEGRAM_CHAT_ID: "139236889"
+  # Failure alerts always go to the owner, never to a public channel.
+  TELEGRAM_ALERT_CHAT_ID: "139236889"
   READER_PROFILE: "airline pricing and the aviation industry; AI and LLM tooling; Kubernetes, cloud and data engineering; Israeli tech"
   # Empty until the UI has a hostname; alerts then show the run id without a link.
   DAGSTER_UI_URL: ""
