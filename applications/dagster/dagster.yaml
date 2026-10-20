@@ -42,7 +42,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: webserver
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.5 # {"$imagepolicy": "flux-system:news-digest"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.9 # {"$imagepolicy": "flux-system:news-digest"}
           imagePullPolicy: IfNotPresent
           command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "news_digest.definitions"]
           # No secrets here: runs, schedules and sensors all execute in the daemon.
@@ -89,7 +89,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: daemon
-          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.5 # {"$imagepolicy": "flux-system:news-digest"}
+          image: il-jerusalem-1.ocir.io/axiwhc5fgu9i/news-digest:0.0.9 # {"$imagepolicy": "flux-system:news-digest"}
           imagePullPolicy: IfNotPresent
           command: ["dagster-daemon", "run", "-m", "news_digest.definitions"]
           envFrom:
