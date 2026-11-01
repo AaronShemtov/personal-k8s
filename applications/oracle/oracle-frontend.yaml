@@ -60,6 +60,11 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+            # fetcherr.1ms.my: a second page of the site, served by its own nginx server on
+            # its own port (see fetcherr-httproute.yaml).
+            - name: fetcherr
+              containerPort: 8081
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
@@ -121,4 +126,10 @@ spec:
     - name: http
       port: 80
       targetPort: http
+      protocol: TCP
+    # Only the fetcherr route uses this port. An image from before nginx's fetcherr
+    # server does not listen on it, so Envoy answers 503 rather than the Oracle page.
+    - name: fetcherr
+      port: 8081
+      targetPort: fetcherr
       protocol: TCP
