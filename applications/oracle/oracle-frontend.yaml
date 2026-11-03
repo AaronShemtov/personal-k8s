@@ -2,10 +2,9 @@
 # (a private repository: it holds the page's material).
 #
 # No backend and no database: nginx-unprivileged serving the static files baked into
-# the image. The site is behind basic auth, enforced by Envoy Gateway before a request
-# gets here (securitypolicy.yaml), with the password from OCI Vault; the pod itself holds
-# no secret. Each push to the repo triggers a GitHub Actions build; Flux Image
-# Automation then bumps the tag below.
+# the image. The site is public, with no password (its basic auth was removed on
+# 2026-11-03); the pod holds no secret. Each push to the repo triggers a GitHub Actions
+# build; Flux Image Automation then bumps the tag below.
 #
 # Same shape as infra-frontend: a small footprint, and two replicas so a
 # rolling update never leaves the site without a ready pod.

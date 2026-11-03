@@ -4,13 +4,13 @@
 # repo), so it needs no pod of its own. On 8081 nginx answers with that page and the
 # files it uses, and with 404 for everything else.
 #
-# Its own port, not just its own Host header, so that it fails closed: an image from
-# before nginx's fetcherr server does not listen on 8081, and Envoy then answers 503
-# instead of the Oracle page without its password. The Oracle route stays on port 80.
+# Its own port, not just its own Host header, so that this hostname only ever shows the
+# Fetcherr page: an image from before nginx's fetcherr server does not listen on 8081,
+# and Envoy then answers 503 instead of the Oracle page. The Oracle route stays on
+# port 80.
 #
-# No SecurityPolicy targets this route, so the page has no password: it is shared by
-# link only, and nginx asks search engines not to index it. The Oracle page's basic
-# auth stays on its own route, `oracle`.
+# The page has no password: it is shared by link only, and nginx asks search engines
+# not to index it.
 #
 # The public hostname is added to the remote-managed Cloudflare Tunnel by hand, in the
 # dashboard, like oracle.1ms.my's.
