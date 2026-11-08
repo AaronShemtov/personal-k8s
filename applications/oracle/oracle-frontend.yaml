@@ -64,6 +64,11 @@ spec:
             - name: fetcherr
               containerPort: 8081
               protocol: TCP
+            # jll.1ms.my: a third page, served the same way on 8082 (see
+            # jll-httproute.yaml).
+            - name: jll
+              containerPort: 8082
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
@@ -131,4 +136,9 @@ spec:
     - name: fetcherr
       port: 8081
       targetPort: fetcherr
+      protocol: TCP
+    # Only the jll route uses this one, for the same reason.
+    - name: jll
+      port: 8082
+      targetPort: jll
       protocol: TCP
