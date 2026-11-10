@@ -9,7 +9,7 @@
 #
 # Memory, measured after a PetClinic build: about 2.5 GiB for the artifactory pod
 # (eight services), 3.5 GiB for all four pods. Each JVM's heap is a share of its
-# container's limit.
+# container's limit: 60% for Artifactory, 50% for the other Java services.
 #
 # CPU: every container has a limit, 1.5 cores for the artifactory pod and 2.5 for
 # all four. Without them, the first start of a test install held a node's two cores
@@ -104,9 +104,28 @@ spec:
             <config version="v1">
                 <chain template="full-db-direct"/>
             </config>
+        # Two settings that the artifactory container takes only from its environment:
+        # - The join key. The chart gives it to Access alone, which passes it on once
+        #   it is up. Artifactory waits 60 s for it and then stays down until it is
+        #   restarted. At the first start on the cluster (2026-11-10) Access took
+        #   longer, and Artifactory was down until its startup probe restarted it 30
+        #   minutes later. With the key here it does not wait.
+        # - The heap. The start script adds only shared.extraJavaOpts to its default
+        #   -Xmx2g (artifactory.extraJavaOpts in system.yaml is ignored), and 2 GiB of
+        #   heap plus the JVM's own memory can pass the 2560Mi limit. The two -D options
+        #   are the chart's shared.extraJavaOpts, which this variable replaces here.
+        extraEnvironmentVariables:
+          - name: JF_SHARED_SECURITY_JOINKEY
+            valueFrom:
+              secretKeyRef:
+                name: artifactory-secrets
+                key: join-key
+          - name: JF_SHARED_EXTRAJAVAOPTS
+            value: >-
+              -Xmx1536m
+              -Dartifactory.graceful.shutdown.max.request.duration.millis=30000
+              -Dartifactory.access.client.max.connections=50
         extraSystemYaml:
-          artifactory:
-            extraJavaOpts: "-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=60"
           access:
             extraJavaOpts: "-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=50"
           jfconfig:
