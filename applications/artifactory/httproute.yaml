@@ -1,0 +1,46 @@
+# Routes artifactory.1ms.my to the JFrog router (port 8082), which serves the UI and
+# the APIs, like the chart's own nginx would.
+#
+# The site is public, but only the login page opens without a password: anonymous
+# access is off, and admin's password is 32 random characters from OCI Vault.
+#
+# Headers: TLS ends at Cloudflare, so Artifactory sees plain HTTP. The headers tell it
+# its public address, which it then uses for redirects and in the URLs it shows (Set Me
+# Up). The chart's nginx sets X-JFrog-Override-Base-Url the same way.
+#
+# Timeout: 30 minutes per request, so a big download or upload is not cut off by
+# Envoy's default route timeout (15 s). Cloudflare's free plan still limits a single
+# upload to 100 MB.
+#
+# The public hostname is added to the remote-managed Cloudflare Tunnel by hand, in the
+# dashboard, like the others.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: artifactory
+  namespace: artifactory
+spec:
+  parentRefs:
+    - name: homelab-gateway
+      namespace: envoy-gateway-system
+      sectionName: http
+  hostnames:
+    - "artifactory.1ms.my"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - name: X-JFrog-Override-Base-Url
+                value: https://artifactory.1ms.my
+              - name: X-Forwarded-Proto
+                value: https
+      timeouts:
+        request: 30m
+      backendRefs:
+        - name: artifactory
+          port: 8082
