@@ -1,0 +1,18 @@
+# artifactory: JFrog Artifactory OSS, the free edition of Artifactory, for Java (Maven,
+# Gradle, Ivy, SBT). A small lab: Maven Central proxied and cached in a remote
+# repository, our own builds in local ones, and one virtual address in front of them.
+#
+# It has no public hostname. The UI is reached with
+#   kubectl --context personal-Israel -n artifactory port-forward svc/artifactory 8082:8082
+# then http://localhost:8082, user admin, password from the Secret artifactory-secrets
+# (key: password). Builds run in the cluster (maven-build.yaml).
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: artifactory
+  labels:
+    app.kubernetes.io/name: artifactory
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

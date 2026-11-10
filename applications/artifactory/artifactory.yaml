@@ -1,0 +1,185 @@
+# JFrog Artifactory OSS 7.161, from JFrog's Helm chart. Every image in it is built
+# for arm64 as well, and every pod passes the restricted Pod Security profile.
+#
+# Storage: the one block volume the Always Free tier still has room for (OKE bills
+# block volumes from 50 GB) goes to PostgreSQL. Artifactory itself has no volume:
+# its binaries live in PostgreSQL too (the full-db-direct binary store), so its pod
+# can be deleted and comes back with every artifact. JFrog recommends file or
+# object storage for big binaries; for a lab of Maven jars the database is enough.
+#
+# Memory, measured after a PetClinic build: about 2.5 GiB for the artifactory pod
+# (eight services), 3.5 GiB for all four pods. Each JVM's heap is a share of its
+# container's limit.
+#
+# CPU: every container has a limit, 1.5 cores for the artifactory pod and 2.5 for
+# all four. Without them, the first start of a test install held a node's two cores
+# at 100% for five minutes, while it was also pulling the images. Its kubelet
+# restarted, the node was NotReady for 80 s, and the External Secrets webhook on
+# that node (10m CPU requested) failed its probes for as long as Artifactory ran.
+# With the limits it starts slower: in the test the first start (an empty database
+# to set up) took about 17 minutes, later restarts 2 to 5. The startup probes below
+# allow 30 minutes.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: jfrog
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://charts.jfrog.io
+---
+# Read by Artifactory at its first start: it creates the default Maven
+# repositories, as the setup wizard would. libs-release-local and
+# libs-snapshot-local hold our own builds, maven-remote proxies and caches Maven
+# Central, and the virtual libs-release and libs-snapshot put them behind one URL.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: artifactory-bootstrap
+  namespace: artifactory
+data:
+  artifactory.config.import.yml: |
+    version: 1
+    OnboardingConfiguration:
+      repoTypes:
+        - maven
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: artifactory
+  namespace: artifactory
+spec:
+  interval: 1h
+  # The first start takes about 17 minutes with the CPU limits below.
+  timeout: 40m
+  chart:
+    spec:
+      chart: artifactory-oss
+      version: "107.161.26"
+      sourceRef:
+        kind: HelmRepository
+        name: jfrog
+        namespace: flux-system
+      interval: 24h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    artifactory:
+      # No public hostname, so no nginx: kubectl port-forward goes to the router.
+      nginx:
+        enabled: false
+      postgresql:
+        enabled: true
+        primary:
+          persistence:
+            enabled: true
+            storageClass: oci-bv
+            size: 50Gi
+          resources:
+            requests: {cpu: 50m, memory: 256Mi}
+            limits: {cpu: 300m, memory: 768Mi}
+      artifactory:
+        masterKeySecretName: artifactory-secrets
+        joinKeySecretName: artifactory-secrets
+        admin:
+          secret: artifactory-secrets
+          dataKey: bootstrap.creds
+        configMapName: artifactory-bootstrap
+        copyOnEveryStartup:
+          - source: /artifactory_bootstrap/artifactory.config.import.yml
+            target: etc/artifactory/
+        database:
+          maxOpenConnections: 20
+        persistence:
+          enabled: false
+          # the size limit of the emptyDir that replaces the volume
+          size: 10Gi
+          binarystoreXml: |
+            <config version="v1">
+                <chain template="full-db-direct"/>
+            </config>
+        extraSystemYaml:
+          artifactory:
+            extraJavaOpts: "-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=60"
+          access:
+            extraJavaOpts: "-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=50"
+          jfconfig:
+            extraJavaOpts: "-XX:+UseStringDeduplication -XX:+UseG1GC -XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=50"
+          topology:
+            extraJavaOpts: "-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=50"
+        resources:
+          requests: {cpu: 200m, memory: 1Gi}
+          limits: {cpu: 600m, memory: 2560Mi}
+        # The startup probes of the slow starters, with the chart's checks and
+        # 30 minutes (360 x 5 s) instead of the chart's 1 to 8. The router is ready
+        # only when the other services are, so a short probe there restarts it
+        # halfway and sets every service back.
+        startupProbe:
+          config: |
+            httpGet:
+              path: /artifactory/api/v1/system/readiness
+              port: {{ .Values.artifactory.tomcat.maintenanceConnector.port }}
+            initialDelaySeconds: 10
+            failureThreshold: 360
+            periodSeconds: 5
+            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+      access:
+        database: {maxOpenConnections: 10}
+        resources: {requests: {cpu: 50m, memory: 768Mi}, limits: {cpu: 300m, memory: 1Gi}}
+        startupProbe:
+          config: |
+            exec:
+              command:
+                - sh
+                - -c
+                - curl --fail --max-time {{ .Values.probes.timeoutSeconds }} http://localhost:8040/access/api/v1/system/readiness
+            initialDelaySeconds: 5
+            failureThreshold: 360
+            periodSeconds: 5
+            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+      metadata:
+        database: {maxOpenConnections: 10}
+        resources: {requests: {cpu: 20m, memory: 64Mi}, limits: {cpu: 100m, memory: 256Mi}}
+      event:
+        resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {cpu: 50m, memory: 128Mi}}
+      topology:
+        database: {maxOpenConnections: 10}
+        resources: {requests: {cpu: 20m, memory: 384Mi}, limits: {cpu: 150m, memory: 640Mi}}
+      jfconfig:
+        database: {maxOpenConnections: 10}
+        resources: {requests: {cpu: 20m, memory: 400Mi}, limits: {cpu: 150m, memory: 640Mi}}
+      observability:
+        resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {cpu: 50m, memory: 128Mi}}
+      router:
+        resources: {requests: {cpu: 20m, memory: 96Mi}, limits: {cpu: 100m, memory: 256Mi}}
+        startupProbe:
+          config: |
+            httpGet:
+              path: /router/api/v1/system/readiness
+              port: {{ .Values.router.externalPort }}
+              scheme: {{ include "artifactory.scheme" . | upper }}
+            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 360
+      frontend:
+        resources: {requests: {cpu: 20m, memory: 128Mi}, limits: {cpu: 200m, memory: 512Mi}}
+      jfbus:
+        resources: {requests: {cpu: 20m, memory: 384Mi}, limits: {cpu: 200m, memory: 768Mi}}
+        startupProbe:
+          config: |
+            httpGet:
+              path: /{{ .Values.jfbus.apiContext }}/system/health/readiness
+              port: {{ .Values.jfbus.internalRestPort }}
+              scheme: HTTP
+            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            failureThreshold: 360
+            successThreshold: 1

@@ -1,0 +1,134 @@
+# A Maven build through Artifactory, the Java side of the lab. Spring PetClinic
+# (github.com/spring-projects/spring-petclinic, pinned to one commit) resolves all
+# of its dependencies and plugins through the virtual repository libs-release, which
+# proxies Maven Central and caches it in maven-remote-cache. Then it deploys its
+# jar, POM and CycloneDX SBOM to libs-snapshot-local. The first build fills the
+# cache (about 1,100 files, 200 MB); later ones take everything from Artifactory.
+#
+# Suspended: it runs only when started by hand,
+#   kubectl --context personal-Israel -n artifactory create job --from=cronjob/petclinic-build petclinic-build-1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maven-settings
+  namespace: artifactory
+data:
+  settings.xml: |
+    <settings>
+      <servers>
+        <server>
+          <id>artifactory</id>
+          <username>admin</username>
+          <password>${env.ARTIFACTORY_PASSWORD}</password>
+        </server>
+      </servers>
+      <mirrors>
+        <mirror>
+          <id>artifactory</id>
+          <mirrorOf>*</mirrorOf>
+          <url>http://artifactory:8082/artifactory/libs-release</url>
+        </mirror>
+      </mirrors>
+    </settings>
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: petclinic-build
+  namespace: artifactory
+spec:
+  # Required by the API; never fires while suspended.
+  schedule: "0 3 * * *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: source
+              image: alpine:3.22
+              command: ["sh", "-c"]
+              args:
+                - wget -qO- "https://codeload.github.com/spring-projects/spring-petclinic/tar.gz/$(COMMIT)" | tar -xz -C /work --strip-components=1
+              env:
+                - name: COMMIT
+                  value: 500158f732419217507c7656904b8e6aa1bcc0d6
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+          containers:
+            - name: maven
+              image: maven:3.9-eclipse-temurin-21
+              workingDir: /work
+              command: ["mvn"]
+              args:
+                - -B
+                - -s
+                - /settings/settings.xml
+                - -Duser.home=/tmp
+                - -Dmaven.repo.local=/m2
+                # PetClinic's tests start databases in Docker containers; the build
+                # still compiles them.
+                - -DskipTests
+                - deploy
+                - -DaltDeploymentRepository=artifactory::http://artifactory:8082/artifactory/libs-snapshot-local
+              env:
+                # The image points MAVEN_CONFIG at /root/.m2, which user 1000
+                # cannot use; the settings and the local repository are set above.
+                - name: MAVEN_CONFIG
+                  value: ""
+                - name: HOME
+                  value: /tmp
+                - name: MAVEN_OPTS
+                  value: -XX:MaxRAMPercentage=50
+                - name: ARTIFACTORY_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: artifactory-secrets
+                      key: password
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 768Mi
+                limits:
+                  memory: 1536Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: m2
+                  mountPath: /m2
+                - name: tmp
+                  mountPath: /tmp
+                - name: settings
+                  mountPath: /settings
+          volumes:
+            - name: work
+              emptyDir: {}
+            - name: m2
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+            - name: settings
+              configMap:
+                name: maven-settings
