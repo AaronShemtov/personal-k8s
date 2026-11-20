@@ -1,0 +1,35 @@
+# Routes devopsnews.1ms.my to the oracle-frontend Service, port 8083: the page of the
+# Telegram channel t.me/dagsternews, which my Dagster pipeline (namespace dagster)
+# writes. It is a fourth page of that site (public/devopsnews.html in the OCI repo), so
+# it needs no pod of its own. On 8083 nginx answers with that page, with /channel (the
+# channel's public preview, fetched from Telegram for the page's script) and with the
+# icons; everything else is 404.
+#
+# Its own port, as fetcherr.1ms.my and jll.1ms.my have: an image from before nginx's
+# devopsnews server does not listen on 8083, and Envoy then answers 503 instead of
+# another page.
+#
+# The page is public and in the menu of every site.
+#
+# The public hostname is added to the remote-managed Cloudflare Tunnel by hand, in the
+# dashboard, like the others.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: devopsnews
+  namespace: oracle
+spec:
+  parentRefs:
+    - name: homelab-gateway
+      namespace: envoy-gateway-system
+      sectionName: http
+  hostnames:
+    - "devopsnews.1ms.my"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: oracle-frontend
+          port: 8083

@@ -69,6 +69,11 @@ spec:
             - name: jll
               containerPort: 8082
               protocol: TCP
+            # devopsnews.1ms.my: the page of the Telegram news channel, on 8083 (see
+            # devopsnews-httproute.yaml).
+            - name: devopsnews
+              containerPort: 8083
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
@@ -141,4 +146,9 @@ spec:
     - name: jll
       port: 8082
       targetPort: jll
+      protocol: TCP
+    # And the devopsnews route this one.
+    - name: devopsnews
+      port: 8083
+      targetPort: devopsnews
       protocol: TCP
