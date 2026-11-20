@@ -19,7 +19,8 @@ data:
   # Failure alerts go to the owner's private chat with the bot, never to the channel. The
   # bot can write there only once the owner has pressed Start in it.
   TELEGRAM_ALERT_CHAT_ID: "139236889"
-  READER_PROFILE: "airline pricing and the aviation industry; AI and LLM tooling; Kubernetes, cloud and data engineering; Israeli tech"
+  # What the model picks stories for; the topics themselves are in news-digest's sources.py.
+  READER_PROFILE: "AI models, platforms and agents (OpenAI, Anthropic, Google, Microsoft Foundry); Kubernetes, GitOps (Flux, Argo CD) and the AWS, Azure, Google and Oracle clouds; software vulnerabilities and actively exploited CVEs; new Israeli tech companies; the tech job market for DevOps, SRE and production engineers: hiring, layoffs and demand"
   # Empty until the UI has a hostname; alerts then show the run id without a link.
   DAGSTER_UI_URL: ""
 ---
