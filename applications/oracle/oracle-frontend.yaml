@@ -74,6 +74,11 @@ spec:
             - name: devopsnews
               containerPort: 8083
               protocol: TCP
+            # alwaysblamejews.1ms.my: a page on myths about Jews, on 8084 (see
+            # alwaysblamejews-httproute.yaml).
+            - name: myths
+              containerPort: 8084
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
@@ -151,4 +156,9 @@ spec:
     - name: devopsnews
       port: 8083
       targetPort: devopsnews
+      protocol: TCP
+    # And the alwaysblamejews route this one.
+    - name: myths
+      port: 8084
+      targetPort: myths
       protocol: TCP
