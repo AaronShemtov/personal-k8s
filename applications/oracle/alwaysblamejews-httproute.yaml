@@ -1,0 +1,32 @@
+# Routes alwaysblamejews.1ms.my to the oracle-frontend Service, port 8084: a page on
+# myths about Jews, public/myths/ in the OCI repo (the page, and its texts in one JSON
+# file per language). It is a fifth page of that site, so it needs no pod of its own. On
+# 8084 nginx's root is that folder, so the host can answer with nothing else.
+#
+# Its own port, as the other pages have: an image from before nginx's 8084 server does
+# not listen on it, and Envoy then answers 503 instead of another page.
+#
+# The page is public but in no menu: it is shared by link.
+#
+# The public hostname is added to the remote-managed Cloudflare Tunnel by hand, in the
+# dashboard, like the others.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: alwaysblamejews
+  namespace: oracle
+spec:
+  parentRefs:
+    - name: homelab-gateway
+      namespace: envoy-gateway-system
+      sectionName: http
+  hostnames:
+    - "alwaysblamejews.1ms.my"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: oracle-frontend
+          port: 8084
